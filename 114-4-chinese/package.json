@@ -1,0 +1,8 @@
+{
+  "name": "peipeiki-114-chinese-mock-exam",
+  "version": "1.0.0",
+  "description": "114學年度北北基學測國文模擬考試線上考場",
+  "scripts": {
+    "serve": "npx serve ."
+  }
+}

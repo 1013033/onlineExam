@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>學術能力模擬檢測 - 線上測驗平台入口</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: oklch(98% 0.005 240);
+      --surface: oklch(100% 0 0);
+      --surface-2: oklch(96.5% 0.008 245);
+      --fg: oklch(16% 0.015 245);
+      --muted: oklch(50% 0.015 245);
+      --border: oklch(90% 0.006 245);
+      --accent: oklch(56% 0.19 255);
+      --accent-soft: oklch(94% 0.035 255);
+      --accent-2: oklch(62% 0.16 65);
+      --r-md: 12px;
+      --shadow-lift: 0 10px 30px -15px oklch(20% 0.02 245 / 0.12),
+                     0 3px 8px -3px oklch(20% 0.02 245 / 0.04);
+      --shadow-hover: 0 18px 40px -10px oklch(20% 0.02 245 / 0.18),
+                      0 5px 15px -3px oklch(20% 0.02 245 / 0.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: oklch(15% 0.015 250);
+        --surface: oklch(19.5% 0.015 250);
+        --surface-2: oklch(22.5% 0.015 250);
+        --fg: oklch(95% 0.006 250);
+        --muted: oklch(65% 0.012 250);
+        --border: oklch(26% 0.016 250);
+        --accent: oklch(68% 0.16 255);
+        --accent-soft: oklch(28% 0.07 255);
+        --shadow-lift: 0 12px 35px -15px oklch(0% 0 0 / 0.5),
+                       0 4px 10px -3px oklch(0% 0 0 / 0.25);
+        --shadow-hover: 0 20px 45px -10px oklch(0% 0 0 / 0.65),
+                        0 6px 18px -3px oklch(0% 0 0 / 0.35);
+      }
+    }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Noto Sans TC", "Nunito", sans-serif;
+      margin: 0;
+      padding: 48px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+      max-width: 600px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 900;
+      margin: 0 0 12px;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
+      width: 100%;
+      max-width: 1000px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 28px;
+      box-shadow: var(--shadow-lift);
+      display: flex;
+      flex-direction: column;
+      transition: all 250ms ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--accent);
+    }
+    .card-tag {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0 0 12px;
+      line-height: 1.4;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+      flex: 1;
+    }
+    .card-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 20px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+    .card-btn {
+      display: inline-block;
+      text-align: center;
+      background: var(--accent);
+      color: white;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      transition: all 150ms ease;
+    }
+    .card-btn:hover {
+      background: color-mix(in oklab, var(--accent) 80%, black);
+      text-decoration: none;
+    }
+    .card.placeholder {
+      border-style: dashed;
+      border-width: 2px;
+      background: transparent;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 40px;
+    }
+    .card.placeholder:hover {
+      border-color: var(--muted);
+      transform: none;
+      box-shadow: var(--shadow-lift);
+    }
+    .placeholder-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
+    .placeholder-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>學術能力模擬檢測入口</h1>
+    <div class="subtitle">歡迎來到模擬考試線上平台。本系統已依照不同試題與科目分類，請點擊下方對應的卡片進入考場進行線上作答與評分。</div>
+  </header>
+
+  <div class="grid">
+    <!-- Exam 1: 114-4 Chinese -->
+    <div class="card">
+      <div class="card-tag">國語文綜合能力測驗</div>
+      <h2 class="card-title">114 學年度北北基模擬考試</h2>
+      <p class="card-desc">本測驗包含字音字形、國學基礎、古典詩文及白話文學閱讀，並包含混合/手寫非選擇題題型。內建學測多選扣分算式，並提供即時字數統計與詳細題目解析。</p>
+      <div class="card-meta">
+        <span>⏱️ 90 分鐘</span>
+        <span>📝 共 36 題</span>
+        <span>🎯 滿分 100 分</span>
+      </div>
+      <a href="114-4-chinese/" class="card-btn">進入線上考場</a>
+    </div>
+
+    <!-- Future Placeholder -->
+    <div class="card placeholder">
+      <div class="placeholder-icon">📥</div>
+      <div class="placeholder-title">未來新增試卷</div>
+      <p style="font-size: 13px; color: var(--muted); margin-top: 8px; margin-bottom: 0;">在此目錄下新增其他學科與試卷資料夾，即可在此面板中進行串接與擴展。</p>
+    </div>
+  </div>
+</body>
+</html>
