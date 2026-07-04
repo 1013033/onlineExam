@@ -67,7 +67,9 @@
   /* ============================================================
    * Storage / state
    * ============================================================ */
-  const STORE_KEY = 'peipeiki-114-chinese-mock-progress-v1';
+  const STORE_KEY = (window.COURSE && window.COURSE.meta && window.COURSE.meta.storeKey)
+    ? window.COURSE.meta.storeKey
+    : 'peipeiki-114-chinese-mock-progress-v1';
   const store = {
     load() {
       try {
@@ -341,7 +343,10 @@
     grid.append(el('div', { class: 'kv-key' }, '考試時間'));
     grid.append(el('div', { class: 'kv-val' }, window.COURSE.meta.format || ''));
     grid.append(el('div', { class: 'kv-key' }, '作答說明'));
-    grid.append(el('div', { class: 'kv-val' }, '單選題共 24 題，多選題共 7 題，混合與非選擇題共 5 題。多選題答錯選項會有部分倒扣扣分。作答完成後，點擊最下方「送出答案與評分」按鈕可獲得即時分數及詳解。'));
+    const instructions = (window.COURSE.meta && window.COURSE.meta.instructions)
+      ? window.COURSE.meta.instructions
+      : '單選題共 24 題，多選題共 7 題，混合與非選擇題共 5 題。多選題答錯選項會有部分倒扣扣分。作答完成後，點擊最下方「送出答案與評分」按鈕可獲得即時分數及詳解。';
+    grid.append(el('div', { class: 'kv-val' }, instructions));
     root.append(grid);
 
     // Objectives
@@ -773,7 +778,9 @@
    * Timer Script (90 Minutes)
    * ============================================================ */
   let examTimer = null;
-  let timeRemaining = 5400; // 90 mins in seconds
+  let timeRemaining = (window.COURSE && window.COURSE.meta && window.COURSE.meta.timerSeconds)
+    ? window.COURSE.meta.timerSeconds
+    : 5400; // 90 mins in seconds
   let timerRunning = false;
 
   function initTimer() {

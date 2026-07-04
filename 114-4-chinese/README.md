@@ -1,38 +1,175 @@
-# 114學年度北北基學測國文模擬考試線上考場
+# 114-4 北北基學測國文模擬考試
 
-本專案是一個基於 **Google Antigravity Teaching Site** 架構開發的單頁式（SPA）國文線上測驗網站，使用原生 HTML/CSS/JavaScript 開發，無任何框架或編譯步驟，具有極佳的長期維護性與可攜性。
+> **內容管理**：所有網頁文字（題目、選項、解析、單元說明、入口頁卡片）均集中在 `content.md`。修改它，其他都不用碰。
 
-## 專案結構
+---
+
+## ✏️ 修改考試內容
+
+**唯一要編輯的檔案：**
+
 ```
-D:\Aaron-agy\onlineExam\web\114-4-chinese\
-├── index.html                  # 線上考場主要應用程式 (SPA)
-├── style.css                   # 設計系統與版型樣式 (OKLCH 色票 / 響應式 / 暗色模式)
-├── course-data.js              # 全試卷 36 題題目、選項、參考答案與解析資料
-├── viewer.html                 # 整合式 Markdown 試卷閱讀器
-├── package.json                # npm 啟動指令設定
-└── course-package/             # Markdown 教學與試卷原始檔 (單一真實來源)
-    ├── overview.md             # 考科大綱與簡介
-    ├── day1/
-    │   ├── outline.md          # 測驗單元大綱與時間安排
-    │   └── content.md          # 各大題指引與圖片需求配置
-    └── materials/
-        └── 114-4-chinese-mock.md # 試卷 Markdown 原始檔
+web/114-4-chinese/content.md
 ```
 
-## 功能特色
-1. **即時線上作答與進度追蹤**：點選單選與多選選項，系統將自動記錄您的作答狀態，並於左側狀態列即時反映「測驗完成度」。
-2. **模擬考 90 分鐘倒數計時器**：右上角計時器可幫助您模擬學測 90 分鐘限時作答的緊張感，時間到將自動送出評分。
-3. **學測多選倒扣計分演算法**：多選題精確模擬大考中心「得 (n-2k)/n 分」的判定規則（5個選項中答錯1個得2.4分、答錯2個得0.8分、答錯3個以上得0分）。
-4. **手寫題即時字數統計與對照**：針對第二部分手寫題（Q34, Q35, Q36），提供字數計數器，並可「一鍵展開」參考答案與評分規準供您自我檢測。
-5. **精美暗色模式 (Dark Mode)**：基於感知均勻的 OKLCH 色票設計，支援一鍵切換深淺色主題。
-6. **XSS 安全與本地儲存**：完全使用安全的 DOM 操作，防止任何惡意程式注入；作答進度與主題狀態皆自動儲存於瀏覽器 localStorage 中。
+---
 
-## 本地運行方式
-請於本專案目錄下開啟終端機並執行以下指令啟動本地伺服器：
+## 🚀 本地開發（改 MD → 瀏覽器自動刷新）
+
 ```powershell
-npm run serve
+cd web/114-4-chinese
+npm run dev
 ```
-啟動後在瀏覽器中打開 `http://localhost:3000` 即可開始進行測驗！
 
-> [!IMPORTANT]
-> 由於瀏覽器對安全性 (CORS) 與 `localStorage` 的限制，**請勿直接雙擊 `index.html` 以 `file://` 協定打開**，否則計時、進度儲存與材料檢視器將無法正常運作。請務必使用 `npm run serve` 或任何 HTTP 本地伺服器開啟。
+瀏覽器開啟 **http://localhost:3456/**，存檔 `content.md` 後頁面自動刷新。
+
+---
+
+## 🔨 Build（更新靜態 JS 資料）
+
+```powershell
+cd web/114-4-chinese
+npm run build
+```
+
+這會重新產生 `course-data.js`（考試頁資料）和 `../portal-data.js`（入口頁資料）。
+
+---
+
+## 🌐 部署到 GitHub Pages
+
+每次修改 `content.md` 後執行：
+
+```powershell
+cd web/114-4-chinese
+npm run build
+
+# 在 web/ 的 git repo 下 push
+cd ..
+git add -A
+git commit -m "content: update"
+git push
+```
+
+`course-data.js` 和 `portal-data.js` 都是靜態 JS，直接由 GitHub Pages 提供，無需任何 server-side 功能。
+
+---
+
+## 📁 檔案說明
+
+| 檔案 | 用途 |
+|---|---|
+| `content.md` | ⭐ **唯一要改的檔案** |
+| `course-data.js` | ⚙️ 自動生成，勿手改 |
+| `../portal-data.js` | ⚙️ 自動生成，勿手改 |
+| `md-to-data.js` | 解析器：content.md → course-data.js |
+| `dev-server.js` | 本地 hot-reload dev server（port 3456）|
+| `index.html` | 考試頁 SPA（UI 框架，不含文字） |
+| `style.css` | 設計系統樣式 |
+| `viewer.html` | Markdown 試卷閱讀器 |
+
+---
+
+## 📝 content.md 結構
+
+```
+# META          ← 課程基本資訊（標題、計時秒數、學習目標、時程表）
+# DAY1          ← 考試單元（單元一/二/三、任務清單、插圖）
+# MATERIALS     ← 可下載素材清單
+# QUIZ          ← 所有考題（Q1 ～ Q36）
+# PORTAL        ← 入口頁（頁面標題 + 考試卡片）
+```
+
+---
+
+## 📋 題目格式速查
+
+### 單選題
+
+```markdown
+## Q1 · 單選題
+
+題目文字...
+
+- (A) 選項 A
+- (B) 選項 B
+- (C) 選項 C
+- (D) 選項 D
+
+```yaml
+answer: A          ← 正確答案字母
+unit: day1.u-1
+explanation: |
+  【答案】(A)
+  【解析】...
+```
+```
+
+### 多選題
+
+```markdown
+## Q25 · 多選題
+
+題目文字...
+
+- (A) 選項 A
+- (B) 選項 B
+- (C) 選項 C
+- (D) 選項 D
+- (E) 選項 E
+
+```yaml
+answer: [B, D, E]  ← 正確答案字母列表
+unit: day1.u-2
+explanation: |
+  【答案】(B)(D)(E)
+  【解析】...
+```
+```
+
+### 手寫 / 非選擇題
+
+```markdown
+## Q34 · 手寫混合題
+
+題目文字...
+
+```yaml
+type: text
+unit: day1.u-3
+subQuestions:
+  - label: "① 問題一（字數限制）"
+    placeholder: 提示文字
+  - label: "② 問題二（字數限制）"
+    placeholder: 提示文字
+answer:
+  "0": 第一格參考答案
+  "1": 第二格參考答案
+explanation: |
+  【評分標準】...
+```
+```
+
+---
+
+## 🔧 META 區段常用欄位
+
+| 欄位 | 說明 | 範例 |
+|---|---|---|
+| `title` | 考試標題 | `北北基 114 學年度學測國文模擬考試` |
+| `subtitle` | 考試副標 | `國語文綜合能力測驗線上考場` |
+| `storeKey` | localStorage 鍵（唯一識別） | `peipeiki-114-chinese-mock-progress-v1` |
+| `timerSeconds` | 考試秒數 | `5400`（= 90 分鐘）|
+| `instructions` | 作答說明文字（可選）| 空白則使用預設值 |
+| `format` | 考試時間說明 | `線上自主練習 / 90 分鐘限時挑戰` |
+
+---
+
+## ➕ 如何新增試卷
+
+1. 在 `web/` 下建立新資料夾，例如 `web/114-4-english/`。
+2. 將 `114-4-chinese/` 的下列檔案複製過去：
+   `index.html`、`style.css`、`viewer.html`、`package.json`、`md-to-data.js`、`dev-server.js`
+3. 建立新的 `content.md`，填寫 `# META`、`# DAY1`、`# QUIZ`、`# PORTAL` 區段。
+4. 執行 `npm run build`。
+5. 在 `114-4-chinese/content.md` 的 `# PORTAL > ## 考試卡片` 加一個新 yaml 區段 → `npm run build` → 入口頁自動出現新卡片。
