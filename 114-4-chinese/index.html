@@ -73,10 +73,18 @@
   const store = {
     load() {
       try {
-        return JSON.parse(localStorage.getItem(STORE_KEY)) || { tasks: {}, quiz: {}, textAnswers: {}, graded: false, lastSection: '' };
+        const loaded = JSON.parse(localStorage.getItem(STORE_KEY)) || {};
+        return {
+          tasks: loaded.tasks || {},
+          quiz: loaded.quiz || {},
+          textAnswers: loaded.textAnswers || {},
+          graded: loaded.graded || false,
+          gradedQuestions: loaded.gradedQuestions || {},
+          lastSection: loaded.lastSection || ''
+        };
       }
       catch {
-        return { tasks: {}, quiz: {}, textAnswers: {}, graded: false, lastSection: '' };
+        return { tasks: {}, quiz: {}, textAnswers: {}, graded: false, gradedQuestions: {}, lastSection: '' };
       }
     },
     save(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); },
@@ -86,6 +94,7 @@
     }
   };
   let state = store.load();
+  state.gradedQuestions = state.gradedQuestions || {};
 
   /* ============================================================
    * Tiny DOM helper (no framework, no innerHTML for user content)
@@ -356,17 +365,19 @@
     root.append(ul);
 
     // Schedule Table
-    root.append(el('h3', {}, '考科時程與配置'));
-    const sched = el('table', { class: 't' });
-    const thead = el('thead');
-    thead.append(el('tr', {}, el('th', {}, '建議時間'), el('th', {}, '考科單元'), el('th', {}, '考核重點')));
-    sched.append(thead);
-    const tbody = el('tbody');
-    window.COURSE.day1.schedule.forEach(([t, seg, f]) => {
-      tbody.append(el('tr', {}, el('td', {}, t), el('td', {}, seg), el('td', {}, f)));
-    });
-    sched.append(tbody);
-    root.append(sched);
+    if (window.COURSE.day1 && window.COURSE.day1.schedule) {
+      root.append(el('h3', {}, '考科時程與配置'));
+      const sched = el('table', { class: 't' });
+      const thead = el('thead');
+      thead.append(el('tr', {}, el('th', {}, '建議時間'), el('th', {}, '考科單元'), el('th', {}, '考核重點')));
+      sched.append(thead);
+      const tbody = el('tbody');
+      window.COURSE.day1.schedule.forEach(([t, seg, f]) => {
+        tbody.append(el('tr', {}, el('td', {}, t), el('td', {}, seg), el('td', {}, f)));
+      });
+      sched.append(tbody);
+      root.append(sched);
+    }
 
     return root;
   }
@@ -403,11 +414,36 @@
     const container = el('div', { class: 'quiz-container' });
 
     items.forEach((item, index) => {
+      const isGraded = state.graded || (state.gradedQuestions && state.gradedQuestions[item.id]);
+      
+      // Determine card classes based on correctness if already graded
+      const cardClasses = ['quiz-card'];
+      if (isGraded) {
+        if (item.type === 'single') {
+          const given = state.quiz[item.id];
+          if (given === item.answer) {
+            cardClasses.push('correct');
+          } else {
+            cardClasses.push('incorrect');
+          }
+        } else if (item.type === 'multiple') {
+          const given = state.quiz[item.id] || [];
+          let k = 0;
+          for (let oIdx = 0; oIdx < 5; oIdx++) {
+            const chosen = given.includes(oIdx);
+            const shouldChoose = item.answer.includes(oIdx);
+            if (chosen !== shouldChoose) k++;
+          }
+          if (k === 0) cardClasses.push('correct');
+          else cardClasses.push('incorrect');
+        }
+      }
+
       const card = el('div', {
-        class: 'quiz-card',
+        class: cardClasses.join(' '),
         id: `card-${item.id}`,
         'data-type': item.type,
-        'data-graded': state.graded ? 'true' : 'false'
+        'data-graded': isGraded ? 'true' : 'false'
       });
 
       const header = el('div', { class: 'quiz-header' });
@@ -419,8 +455,10 @@
       if (item.type === 'single') {
         const opts = el('div', { class: 'quiz-options' });
         item.options.forEach((optText, optIdx) => {
+          const isSelected = state.quiz[item.id] === optIdx;
+          const isCorrect = item.answer === optIdx;
           const optEl = el('div', {
-            class: 'quiz-option' + (state.quiz[item.id] === optIdx ? ' selected' : '') + (state.graded && item.answer === optIdx ? ' correct-answer' : ''),
+            class: 'quiz-option' + (isSelected ? ' selected' : '') + (isGraded && isCorrect ? ' correct-answer' : ''),
             onclick: () => selectSingleOption(item.id, optIdx)
           });
           optEl.append(el('div', { class: 'quiz-option-marker' }));
@@ -436,7 +474,7 @@
           const isSelected = currentSelections.includes(optIdx);
           const isCorrect = item.answer.includes(optIdx);
           const optEl = el('div', {
-            class: 'quiz-option' + (isSelected ? ' selected' : '') + (state.graded && isCorrect ? ' correct-answer' : ''),
+            class: 'quiz-option' + (isSelected ? ' selected' : '') + (isGraded && isCorrect ? ' correct-answer' : ''),
             onclick: () => toggleMultipleOption(item.id, optIdx)
           });
           optEl.append(el('div', { class: 'quiz-option-marker' }));
@@ -444,6 +482,15 @@
           opts.append(optEl);
         });
         card.append(opts);
+
+        // Add a "Confirm Answer" button for multi-choice questions
+        const confirmBtn = el('button', {
+          class: 'confirm-multi-btn',
+          id: `confirm-${item.id}`,
+          style: 'margin-top: 12px; padding: 8px 16px; font-size: 14px; font-weight: 700; border-radius: var(--r-sm); background: var(--accent); color: white; border: none; cursor: pointer;' + (isGraded ? ' display: none;' : ''),
+          onclick: () => confirmMultipleAnswer(item.id)
+        }, '確認選項並看解析');
+        card.append(confirmBtn);
       } 
       else if (item.type === 'text') {
         const textGroup = el('div', { class: 'quiz-text-input' });
@@ -506,21 +553,17 @@
    * Quiz Logic Handlers
    * ============================================================ */
   function selectSingleOption(itemId, optIdx) {
-    if (state.graded) return; // locked once graded
+    if (state.graded || state.gradedQuestions[itemId]) return; // locked once graded
     state.quiz[itemId] = optIdx;
+    state.gradedQuestions[itemId] = true;
     store.save(state);
     
-    // Re-render only this card's options
-    const card = document.getElementById(`card-${itemId}`);
-    const options = card.querySelectorAll('.quiz-option');
-    options.forEach((opt, idx) => {
-      opt.classList.toggle('selected', idx === optIdx);
-    });
+    gradeSingleQuestion(itemId, optIdx);
     updateProgressUI();
   }
 
   function toggleMultipleOption(itemId, optIdx) {
-    if (state.graded) return; // locked once graded
+    if (state.graded || state.gradedQuestions[itemId]) return; // locked once graded
     if (!state.quiz[itemId]) state.quiz[itemId] = [];
     
     const idxInArr = state.quiz[itemId].indexOf(optIdx);
@@ -536,6 +579,80 @@
       opt.classList.toggle('selected', state.quiz[itemId].includes(idx));
     });
     updateProgressUI();
+  }
+
+  function confirmMultipleAnswer(itemId) {
+    if (state.graded || state.gradedQuestions[itemId]) return;
+    
+    const selections = state.quiz[itemId] || [];
+    if (selections.length === 0) {
+      showToast('請先選擇至少一個選項！');
+      return;
+    }
+    
+    state.gradedQuestions[itemId] = true;
+    store.save(state);
+    
+    gradeMultipleQuestion(itemId);
+    updateProgressUI();
+  }
+
+  function gradeSingleQuestion(itemId, optIdx) {
+    const card = document.getElementById(`card-${itemId}`);
+    if (!card) return;
+    
+    card.setAttribute('data-graded', 'true');
+    
+    const item = window.COURSE.quiz.find(x => x.id === itemId);
+    if (!item) return;
+    
+    const correct = item.answer;
+    if (optIdx === correct) {
+      card.classList.add('correct');
+    } else {
+      card.classList.add('incorrect');
+    }
+    
+    const options = card.querySelectorAll('.quiz-option');
+    options.forEach((opt, idx) => {
+      opt.classList.toggle('selected', idx === optIdx);
+      opt.classList.toggle('correct-answer', idx === correct);
+    });
+  }
+
+  function gradeMultipleQuestion(itemId) {
+    const card = document.getElementById(`card-${itemId}`);
+    if (!card) return;
+    
+    card.setAttribute('data-graded', 'true');
+    
+    const item = window.COURSE.quiz.find(x => x.id === itemId);
+    if (!item) return;
+    
+    const given = state.quiz[itemId] || [];
+    const correct = item.answer;
+    
+    let k = 0;
+    for (let oIdx = 0; oIdx < 5; oIdx++) {
+      const chosen = given.includes(oIdx);
+      const shouldChoose = correct.includes(oIdx);
+      if (chosen !== shouldChoose) k++;
+    }
+    
+    if (k === 0) {
+      card.classList.add('correct');
+    } else {
+      card.classList.add('incorrect');
+    }
+    
+    const options = card.querySelectorAll('.quiz-option');
+    options.forEach((opt, idx) => {
+      opt.classList.toggle('selected', given.includes(idx));
+      opt.classList.toggle('correct-answer', correct.includes(idx));
+    });
+    
+    const confirmBtn = document.getElementById(`confirm-${itemId}`);
+    if (confirmBtn) confirmBtn.style.display = 'none';
   }
 
   function handleTextAnswerInput(itemId, subIdx, textarea, countId) {
@@ -661,13 +778,22 @@
     clear(nav);
 
     const chapters = [
-      { id: 'overview', title: '考試簡介' },
-      { id: 'day1-u-1', title: '壹、單選題作答' },
-      { id: 'day1-u-2', title: '壹、多選題作答' },
-      { id: 'day1-u-3', title: '貳、混合/非選作答' },
-      { id: 'materials-overview', title: '下載試題檔案' },
-      { id: 'quiz', title: '✨ 進入線上試卷' }
+      { id: 'overview', title: '考試簡介' }
     ];
+
+    if (window.COURSE.day1) {
+      chapters.push(
+        { id: 'day1-u-1', title: '壹、單選題作答' },
+        { id: 'day1-u-2', title: '壹、多選題作答' },
+        { id: 'day1-u-3', title: '貳、混合/非選作答' }
+      );
+    }
+
+    if (window.COURSE.materials && window.COURSE.materials.length) {
+      chapters.push({ id: 'materials-overview', title: '下載試題檔案' });
+    }
+
+    chapters.push({ id: 'quiz', title: '✨ 進入線上試卷' });
 
     chapters.forEach(ch => {
       const a = el('a', {
@@ -995,10 +1121,17 @@
     const content = document.getElementById('content');
     
     // Render sections
-    content.append(renderOverview());
-    content.append(renderDay('day1'));
-    content.append(renderMaterials());
-    content.append(renderQuiz());
+    const overview = renderOverview();
+    if (overview) content.append(overview);
+
+    const day1 = renderDay('day1');
+    if (day1) content.append(day1);
+
+    const materials = renderMaterials();
+    if (materials) content.append(materials);
+
+    const quiz = renderQuiz();
+    if (quiz) content.append(quiz);
 
     // Initialize scripts
     renderSidebar();
