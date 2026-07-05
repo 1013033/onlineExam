@@ -90,6 +90,7 @@
     save(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); },
     reset() {
       localStorage.removeItem(STORE_KEY);
+      localStorage.removeItem(`${STORE_KEY}-time-remaining`);
       location.reload();
     }
   };
@@ -916,11 +917,11 @@
     const timerWidget = document.getElementById('timerWidget');
 
     // Load saved time if any
-    const savedTime = localStorage.getItem('mock-exam-time-remaining');
-    if (savedTime) {
+    const savedTime = localStorage.getItem(`${STORE_KEY}-time-remaining`);
+    if (savedTime !== null) {
       timeRemaining = parseInt(savedTime, 10);
-      updateTimerDisplay();
     }
+    updateTimerDisplay();
 
     timerToggleBtn.addEventListener('click', () => {
       if (timerRunning) {
@@ -940,7 +941,7 @@
       if (timeRemaining > 0) {
         timeRemaining--;
         updateTimerDisplay();
-        localStorage.setItem('mock-exam-time-remaining', timeRemaining);
+        localStorage.setItem(`${STORE_KEY}-time-remaining`, timeRemaining);
         
         // Time warning
         if (timeRemaining === 600) {
