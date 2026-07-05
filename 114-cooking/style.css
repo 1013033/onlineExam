@@ -1064,3 +1064,117 @@ button { border: 0; background: transparent; cursor: pointer; transition: all 15
     width: 100%;
   }
 }
+
+/* Sync Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  padding: 24px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transform: translateY(20px);
+  transition: transform 0.3s ease;
+}
+.modal-overlay.active .modal-content {
+  transform: translateY(0);
+}
+.modal-content h3 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  color: var(--fg);
+}
+.modal-desc {
+  font-size: 14px;
+  color: var(--fg-muted, oklch(60% 0.01 250));
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+.qrcode-container {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.qrcode-container img {
+  display: block;
+}
+.manual-link-container {
+  width: 100%;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.manual-link-container span {
+  font-size: 13px;
+  color: var(--fg);
+  display: block;
+  margin-bottom: 6px;
+}
+.manual-link-container input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font-size: 12px;
+  box-sizing: border-box;
+}
+.copy-link-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+.copy-link-btn:hover {
+  opacity: 0.9;
+}
+.close-modal-btn {
+  width: 100%;
+  padding: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.close-modal-btn:hover {
+  background: var(--bg);
+}
