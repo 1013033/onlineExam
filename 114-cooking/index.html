@@ -404,7 +404,8 @@
 
     const root = el('section', { class: 'chapter', id: 'quiz', 'data-section-id': 'quiz' });
     root.append(el('span', { class: 'eyebrow' }, '測驗作答區'));
-    root.append(el('h2', {}, `測驗與即時評估（共 ${items.length} 題）`));
+    const uniqueIds = new Set(items.map(item => item.id.replace(/[a-z]/g, '')));
+    root.append(el('h2', {}, `測驗與即時評估（共 ${uniqueIds.size} 題）`));
     root.append(el('p', { class: 'lead' }, '請在此進行線上答題。選擇題會自動批改，混合題的手寫部分您可以點擊「對照參考答案」進行自我批改與核對。'));
 
     // Score Card
