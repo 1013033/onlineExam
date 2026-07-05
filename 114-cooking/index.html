@@ -22,7 +22,7 @@
 
     <!-- ===== sidebar (fixed left, navigation + progress) ===== -->
     <aside class="sidebar" id="sidebar">
-      <div class="brand">
+      <div class="brand" onclick="location.href='../'" style="cursor: pointer;" title="回到平台首頁">
         <div class="brand-eyebrow" id="programLabel">家事類技藝競賽</div>
         <div class="brand-title" id="platformTitle">中餐烹飪學科測驗</div>
       </div>
@@ -852,6 +852,14 @@
     const nav = document.getElementById('nav');
     clear(nav);
 
+    // Prepend home link
+    const homeLink = el('a', {
+      class: 'nav-link home-nav-link',
+      href: '../',
+      style: 'border-bottom: 1.5px solid var(--border); padding-bottom: 12px; margin-bottom: 12px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px;'
+    }, '🏠 回到平台首頁');
+    nav.append(homeLink);
+
     const chapters = [
       { id: 'overview', title: '考試簡介' }
     ];
@@ -1217,7 +1225,11 @@
           // Update breadcrumb
           const text = Array.from(links).find(a => a.dataset.target === id)?.textContent || '';
           if (text) {
-            document.getElementById('topbarTrail').textContent = `首頁 / ${text}`;
+            const trail = document.getElementById('topbarTrail');
+            trail.innerHTML = '';
+            const homeA = el('a', { href: '../', style: 'color: inherit; text-decoration: none; font-weight: 700;' }, '首頁');
+            trail.append(homeA);
+            trail.append(document.createTextNode(` / ${text}`));
           }
         }
       });
