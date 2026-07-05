@@ -420,6 +420,12 @@
               lastSection: ''
             };
             
+            if (data.q) {
+              Object.keys(data.q).forEach(qid => {
+                localState.gradedQuestions[qid] = true;
+              });
+            }
+            
             localStorage.setItem(key, JSON.stringify(localState));
             if (data.t !== null) {
               localStorage.setItem(`${key}-time-remaining`, data.t);

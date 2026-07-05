@@ -109,6 +109,7 @@
         if (quiz[item.id] !== undefined) {
           const unitId = item.sourceUnit.split('.')[1];
           parsedState.tasks[`d1-${unitId}-t1`] = true;
+          parsedState.gradedQuestions[item.id] = true;
         }
       });
       
