@@ -1,0 +1,11 @@
+{
+  "name": "106-chinese-cooking-mock-exam",
+  "version": "1.0.0",
+  "description": "106 學年度中餐烹調模擬試卷學科線上考場",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "build": "node md-to-data.js",
+    "build:watch": "node md-to-data.js --watch",
+    "serve": "npx serve ."
+  }
+}
