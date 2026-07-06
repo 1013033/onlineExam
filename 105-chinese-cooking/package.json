@@ -1,0 +1,11 @@
+{
+  "name": "105-chinese-cooking-exam",
+  "version": "1.0.0",
+  "description": "105 學年度中餐烹調正式試題學科線上考場",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "build": "node md-to-data.js",
+    "build:watch": "node md-to-data.js --watch",
+    "serve": "npx serve ."
+  }
+}
