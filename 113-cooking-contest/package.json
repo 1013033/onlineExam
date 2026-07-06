@@ -1,0 +1,11 @@
+{
+  "name": "113-cooking-contest-exam",
+  "version": "1.0.0",
+  "description": "113學年度全國高級中等學校學生家事類技藝競賽中餐烹飪職種學科正式試題線上考場",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "build": "node md-to-data.js",
+    "build:watch": "node md-to-data.js --watch",
+    "serve": "npx serve ."
+  }
+}
