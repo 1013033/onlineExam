@@ -1,0 +1,15 @@
+﻿{
+  "name": "104-baking-exam",
+  "version": "1.0.0",
+  "description": "104 學年度烘焙職種學科正式試卷線上考場",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "build": "node md-to-data.js",
+    "build:watch": "node md-to-data.js --watch",
+    "serve": "npx serve ."
+  }
+}
+
+
+
+
