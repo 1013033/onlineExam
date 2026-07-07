@@ -1,0 +1,1313 @@
+﻿<!doctype html>
+<!--
+  index.html - Mock Exam Online Platform
+  Schema authority:  ./course-package/_shared/domain-primitives.md
+  Token reference:   ./style.css
+-->
+<html lang="zh-Hant">
+<head>
+  <script>
+    // Enforce trailing slash so relative assets (style.css, course-data.js) resolve correctly
+    if (window.location.pathname.endsWith('/106-baking')) {
+      window.location.replace(window.location.pathname + '/' + window.location.search + window.location.hash);
+    }
+  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>106 學年度烘焙職種學科正式試卷 - 線上測驗系統</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app" id="app">
+
+    <!-- ===== sidebar (fixed left, navigation + progress) ===== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand" onclick="location.href='../'" style="cursor: pointer;" title="回到平台首頁">
+        <div class="brand-eyebrow" id="programLabel">商業類科學生技藝競賽</div>
+        <div class="brand-title" id="platformTitle">106 烘焙職種學科正式試卷</div>
+      </div>
+      <nav class="nav" id="nav"><!-- populated by renderSidebar() --></nav>
+      <div class="nav-progress" id="navProgress">
+        <div class="progress-text">
+          <span>測驗完成度</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== main content area ===== -->
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-trail" id="topbarTrail">首頁 / 課程總覽</div>
+        <div class="topbar-spacer"></div>
+        <div class="topbar-quick">
+          <!-- Timer Widget -->
+          <div class="timer-widget" id="timerWidget">
+            ⏱️ 剩餘時間: <span id="timerDisplay">60:00</span>
+          </div>
+          <button class="timer-btn" id="timerToggleBtn" type="button">開始計時</button>
+          <button class="timer-btn" id="syncBtn" type="button">手機接續</button>
+          <button class="theme-toggle" id="themeToggle" type="button" aria-label="切換主題">切換深色</button>
+        </div>
+      </header>
+
+      <div class="content" id="content">
+        <!-- All sections rendered here by init() -->
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ===== data load order matters: course-data.js MUST load before render ===== -->
+  <script src="course-data.js"></script>
+
+  <script>
+  /* ============================================================
+   * Storage / state
+   * ============================================================ */
+  const STORE_KEY = (window.COURSE && window.COURSE.meta && window.COURSE.meta.storeKey)
+    ? window.COURSE.meta.storeKey
+    : '106-baking-progress-v1';
+
+  function compressState() {
+    const quizItems = window.COURSE.quiz || [];
+    const answers = quizItems.map(item => state.quiz[item.id] !== undefined ? state.quiz[item.id] : '_').join('');
+    const timeVal = localStorage.getItem(`${STORE_KEY}-time-remaining`) || (window.COURSE && window.COURSE.meta && window.COURSE.meta.timerSeconds) || 3600;
+    const gradedVal = state.graded ? 1 : 0;
+    return `${answers}:${timeVal}:${gradedVal}`;
+  }
+
+  function decompressState(str) {
+    try {
+      const parts = decodeURIComponent(str).split(':');
+      if (parts.length < 3) return null;
+      const [answersStr, timeStr, gradedStr] = parts;
+      
+      const quizItems = window.COURSE.quiz || [];
+      const quiz = {};
+      for (let i = 0; i < quizItems.length; i++) {
+        const char = answersStr[i];
+        if (char !== '_' && char !== undefined) {
+          quiz[quizItems[i].id] = parseInt(char, 10);
+        }
+      }
+      
+      const parsedState = {
+        tasks: {},
+        quiz: quiz,
+        textAnswers: {},
+        graded: gradedStr === '1',
+        gradedQuestions: {},
+        lastSection: ''
+      };
+      
+      // Auto check tasks based on answers
+      quizItems.forEach(item => {
+        if (quiz[item.id] !== undefined) {
+          const unitId = item.sourceUnit.split('.')[1];
+          parsedState.tasks[`d1-${unitId}-t1`] = true;
+          parsedState.gradedQuestions[item.id] = true;
+        }
+      });
+      
+      return {
+        state: parsedState,
+        timeRemaining: parseInt(timeStr, 10)
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const store = {
+    load() {
+      // Check for sync hash parameter first
+      const hash = window.location.hash;
+      if (hash && hash.startsWith('#sync=')) {
+        const syncData = hash.substring(6);
+        // Clear hash immediately so refresh won't overwrite progress
+        window.history.replaceState("", document.title, window.location.pathname + window.location.search);
+        try {
+          const decompressed = decompressState(syncData);
+          if (decompressed) {
+            localStorage.setItem(STORE_KEY, JSON.stringify(decompressed.state));
+            if (decompressed.timeRemaining !== null) {
+              localStorage.setItem(`${STORE_KEY}-time-remaining`, decompressed.timeRemaining);
+            }
+            window.__syncLoaded = true;
+            return decompressed.state;
+          }
+        } catch (e) {
+          console.error("Decompress sync state failed:", e);
+        }
+      }
+
+      try {
+        const loaded = JSON.parse(localStorage.getItem(STORE_KEY)) || {};
+        return {
+          tasks: loaded.tasks || {},
+          quiz: loaded.quiz || {},
+          textAnswers: loaded.textAnswers || {},
+          graded: loaded.graded || false,
+          gradedQuestions: loaded.gradedQuestions || {},
+          lastSection: loaded.lastSection || ''
+        };
+      }
+      catch {
+        return { tasks: {}, quiz: {}, textAnswers: {}, graded: false, gradedQuestions: {}, lastSection: '' };
+      }
+    },
+    save(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); },
+    reset() {
+      localStorage.removeItem(STORE_KEY);
+      localStorage.removeItem(`${STORE_KEY}-time-remaining`);
+      location.reload();
+    }
+  };
+  let state = store.load();
+  state.gradedQuestions = state.gradedQuestions || {};
+
+  /* ============================================================
+   * Tiny DOM helper (no framework, no innerHTML for user content)
+   * ============================================================ */
+  const el = (tag, attrs = {}, ...children) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) node.setAttribute(k, v);
+    }
+    for (const c of children.flat()) {
+      if (c == null || c === false) continue;
+      node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return node;
+  };
+  const clear = (node) => { while (node.firstChild) node.removeChild(node.firstChild); };
+
+  /* ============================================================
+   * Inline markdown (safe — no innerHTML for user content)
+   * Supports: **bold**, [text](url)
+   * ============================================================ */
+  function inlineMarkdown(str) {
+    if (!str) return document.createDocumentFragment();
+    const frag = document.createDocumentFragment();
+    const parts = str.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
+    parts.forEach(part => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        const b = document.createElement('strong');
+        b.textContent = part.slice(2, -2);
+        frag.append(b);
+      } else if (part.startsWith('[') && part.includes('](')) {
+        const match = part.match(/\[([^\]]+)\]\(([^)]+)\)/);
+        if (match) {
+          const a = document.createElement('a');
+          a.textContent = match[1];
+          a.href = match[2];
+          a.target = '_blank';
+          a.rel = 'noopener';
+          frag.append(a);
+        } else {
+          frag.append(document.createTextNode(part));
+        }
+      } else {
+        frag.append(document.createTextNode(part));
+      }
+    });
+    return frag;
+  }
+
+  /* ============================================================
+   * Render: concept block
+   * ============================================================ */
+  function renderConcept(c) {
+    const w = el('div', { class: 'concept' });
+    if (c.heading) w.append(el('div', { class: 'concept-heading' }, c.heading));
+    if (c.body) w.append(el('div', { class: 'concept-body' }, inlineMarkdown(c.body)));
+    if (c.illustration) w.append(renderIllustration(c.illustration));
+    if (c.list && c.list.length) {
+      const kv = el('div', { class: 'kv' });
+      c.list.forEach(([k, v]) => {
+        kv.append(el('div', { class: 'kv-key' }, inlineMarkdown(k)));
+        kv.append(el('div', { class: 'kv-val' }, inlineMarkdown(v)));
+      });
+      w.append(kv);
+    }
+    if (c.table) {
+      const t = el('table', { class: 't' });
+      const thead = el('thead');
+      thead.append(el('tr', {}, ...c.table.head.map(h => el('th', {}, inlineMarkdown(h)))));
+      t.append(thead);
+      const tb = el('tbody');
+      c.table.rows.forEach(r => tb.append(el('tr', {}, ...r.map(cell => el('td', {}, inlineMarkdown(cell))))));
+      t.append(tb);
+      w.append(t);
+    }
+    if (c.note) w.append(el('div', { class: 'note' }, inlineMarkdown(c.note)));
+    return w;
+  }
+
+  /* ============================================================
+   * Render: task list (id is localStorage key — never rename)
+   * ============================================================ */
+  function renderTaskList(tasks) {
+    const list = el('ul', { class: 'task-list' });
+    tasks.forEach(t => {
+      const li = el('li', {
+        class: 'task-item' + (state.tasks[t.id] ? ' done' : ''),
+        'data-task-id': t.id
+      });
+      li.append(el('div', { class: 'task-checkbox' }, '✓'));
+      li.append(el('div', { class: 'task-label' }, t.label));
+      li.addEventListener('click', () => toggleTask(t.id, li));
+      list.append(li);
+    });
+    return list;
+  }
+  function toggleTask(id, li) {
+    if (state.tasks[id]) delete state.tasks[id];
+    else state.tasks[id] = true;
+    li.classList.toggle('done');
+    store.save(state);
+    updateProgressUI();
+  }
+
+  /* ============================================================
+   * Render: material list (3-place sync)
+   * ============================================================ */
+  function renderMaterialList(items) {
+    const w = el('div', { class: 'materials' });
+    items.forEach(m => {
+      const row = el('div', { class: 'material-row' });
+      row.append(el('div', { class: 'material-tag' }, m.type));
+      const center = el('div', {});
+      const url = getMaterialUrl(m.name, m.type);
+      if (url) {
+        const link = el('a', { class: 'material-name', href: '#', onclick: (e) => { e.preventDefault(); openViewer(url); } }, m.name);
+        center.append(link);
+      } else {
+        center.append(el('div', { class: 'material-name' }, m.name));
+      }
+      if (m.desc) center.append(el('div', { class: 'material-desc' }, m.desc));
+      row.append(center);
+      row.append(el('div', { class: 'material-meta' }, 'course-package/materials/'));
+      w.append(row);
+    });
+    return w;
+  }
+
+  /* ============================================================
+   * Material URL router
+   * 3-place sync: this router + course-data.js:materials[] + actual file on disk
+   * ============================================================ */
+  function getMaterialUrl(name, type) {
+    const base = 'course-package/materials';
+    if (name.includes('baking-106') || name.includes('烘焙職種')) {
+      return `${base}/baking-106-official-exam.md`;
+    }
+    return null;
+  }
+
+  /* ============================================================
+   * Render: illustration (dummy SVG generation or fallback)
+   * ============================================================ */
+  function renderIllustration(name) {
+    const wrap = el('div', { class: 'illustration' });
+    const canvasMock = el('div', {
+      style: 'background: var(--surface-2); border: 2px dashed var(--border-strong); padding: 40px; border-radius: var(--r-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;'
+    });
+    
+    let icon = '🍳';
+    let desc = '烘焙職種學科測驗示意圖';
+    if (name.includes('culture')) {
+      icon = '🏮';
+      desc = '飲食文化與餐飲管理';
+    } else if (name.includes('ingredients')) {
+      icon = '🥬';
+      desc = '食材與營養知識（豬肉部位、蔬菜別稱、保存）';
+    } else if (name.includes('methods')) {
+      icon = '🔥';
+      desc = '烹飪技法與專業器具（菜系特色、火候、保溫）';
+    }
+
+    canvasMock.append(el('div', { style: 'font-size: 48px;' }, icon));
+    canvasMock.append(el('div', { style: 'font-weight: 800; font-size: 14px; color: var(--fg);' }, desc));
+    canvasMock.append(el('div', { style: 'font-size: 12px; color: var(--muted);' }, `[示意圖: ${name}]`));
+    wrap.append(canvasMock);
+    return wrap;
+  }
+
+  /* ============================================================
+   * Render: unit accordion
+   * ============================================================ */
+  function renderUnit(day, u) {
+    const det = el('details', { class: 'unit', id: `${day.id}-${u.id}` });
+    if (u.id === 'u-1') det.open = true;
+
+    const sum = el('summary', {});
+    const titleWrap = el('div', { class: 'unit-title-group' });
+    titleWrap.append(el('div', { class: 'unit-title' }, u.title));
+    
+    const metaDiv = el('div', { class: 'unit-meta' });
+    if (u.subtitle) metaDiv.append(el('span', {}, u.subtitle));
+    metaDiv.append(el('span', {}, `建議用時: ${u.time}`));
+    titleWrap.append(metaDiv);
+    
+    sum.append(titleWrap);
+    sum.append(el('span', { class: 'unit-progress-pill', id: `pill-${u.id}` }, '0 / 0'));
+    det.append(sum);
+
+    const body = el('div', { class: 'unit-body' });
+
+    if (u.goals?.length) {
+      body.append(el('h4', {}, '學習與考核目標'));
+      const ul = el('ul', { class: 'list' });
+      u.goals.forEach(g => ul.append(el('li', {}, g)));
+      body.append(ul);
+    }
+    if (u.illustrations?.length) {
+      const hero = u.illustrations.find(i => i.kind === 'hero');
+      if (hero) body.append(renderIllustration(hero.name));
+    }
+    if (u.concepts?.length) {
+      body.append(el('h4', {}, '觀念與技巧指引'));
+      u.concepts.forEach(c => body.append(renderConcept(c)));
+    }
+    if (u.tasks?.length) {
+      body.append(el('h4', {}, '任務清單'));
+      body.append(renderTaskList(u.tasks));
+    }
+    if (u.materials?.length) {
+      body.append(el('h4', {}, '單元相關素材'));
+      body.append(renderMaterialList(u.materials));
+    }
+    det.append(body);
+    return det;
+  }
+
+  /* ============================================================
+   * Render: day section (hero + units)
+   * ============================================================ */
+  function renderDay(dayId) {
+    const d = window.COURSE[dayId];
+    if (!d) return null;
+    const root = el('section', { class: 'chapter', id: dayId, 'data-section-id': dayId });
+    
+    const hero = el('div', { class: 'day-hero' });
+    const meta = window.COURSE.meta.days.find(x => x.id === dayId);
+    hero.append(el('div', { class: 'day-hero-numeral' }, `M${meta?.n || ''}`));
+    const heroMeta = el('div', { class: 'day-hero-meta' });
+    heroMeta.append(el('div', { class: 'eyebrow' }, d.date || ''));
+    heroMeta.append(el('h2', {}, d.title));
+    if (d.learningGoal) heroMeta.append(el('div', { class: 'lead' }, d.learningGoal));
+    hero.append(heroMeta);
+    root.append(hero);
+    
+    d.units?.forEach(u => root.append(renderUnit(d, u)));
+    return root;
+  }
+
+  /* ============================================================
+   * Render: overview (course meta)
+   * ============================================================ */
+  function renderOverview() {
+    const root = el('section', { class: 'chapter', id: 'overview', 'data-section-id': 'overview' });
+    root.append(el('span', { class: 'eyebrow' }, window.COURSE.meta.program || ''));
+    root.append(el('h1', {}, window.COURSE.meta.title));
+    if (window.COURSE.meta.subtitle) root.append(el('div', { class: 'lead' }, window.COURSE.meta.subtitle));
+    
+    // Info grid
+    const grid = el('div', { class: 'kv' });
+    grid.append(el('div', { class: 'kv-key' }, '主辦單位'));
+    grid.append(el('div', { class: 'kv-val' }, window.COURSE.meta.organizer || ''));
+    grid.append(el('div', { class: 'kv-key' }, '考試時間'));
+    grid.append(el('div', { class: 'kv-val' }, window.COURSE.meta.format || ''));
+    grid.append(el('div', { class: 'kv-key' }, '作答說明'));
+    const instructions = (window.COURSE.meta && window.COURSE.meta.instructions)
+      ? window.COURSE.meta.instructions
+      : '單選題共 50 題，每題 2 分，滿分 100 分，無倒扣。作答完成後，點擊最下方「送出答案與評分」按鈕可獲得即時分數及詳解。';
+    grid.append(el('div', { class: 'kv-val' }, instructions));
+    root.append(grid);
+
+    // Objectives
+    root.append(el('h3', {}, '線上測驗學習目標'));
+    const ul = el('ul', { class: 'list' });
+    const objectives = (window.COURSE.meta && Array.isArray(window.COURSE.meta.objectives))
+      ? window.COURSE.meta.objectives
+      : [];
+    objectives.forEach(obj => ul.append(el('li', {}, obj)));
+    root.append(ul);
+
+    // Schedule Table
+    if (window.COURSE.day1 && window.COURSE.day1.schedule) {
+      root.append(el('h3', {}, '考科時程與配置'));
+      const sched = el('table', { class: 't' });
+      const thead = el('thead');
+      thead.append(el('tr', {}, el('th', {}, '建議時間'), el('th', {}, '考科單元'), el('th', {}, '考核重點')));
+      sched.append(thead);
+      const tbody = el('tbody');
+      window.COURSE.day1.schedule.forEach(([t, seg, f]) => {
+        tbody.append(el('tr', {}, el('td', {}, t), el('td', {}, seg), el('td', {}, f)));
+      });
+      sched.append(tbody);
+      root.append(sched);
+    }
+
+    return root;
+  }
+
+  /* ============================================================
+   * Render: materials overview
+   * ============================================================ */
+  function renderMaterials() {
+    const items = window.COURSE.materials || [];
+    if (!items.length) return null;
+    const root = el('section', { class: 'chapter', id: 'materials-overview', 'data-section-id': 'materials-overview' });
+    root.append(el('span', { class: 'eyebrow' }, '素材下載'));
+    root.append(el('h2', {}, '試卷與相關檔案下載'));
+    root.append(renderMaterialList(items));
+    return root;
+  }
+
+  /* ============================================================
+   * Render: Interactive Quiz Platform
+   * ============================================================ */
+  function renderQuiz() {
+    const items = window.COURSE.quiz || [];
+    if (!items.length) return null;
+
+    const root = el('section', { class: 'chapter', id: 'quiz', 'data-section-id': 'quiz' });
+    root.append(el('span', { class: 'eyebrow' }, '測驗作答區'));
+    const uniqueIds = new Set(items.map(item => item.id.replace(/[a-z]/g, '')));
+    root.append(el('h2', {}, `測驗與即時評估（共 ${uniqueIds.size} 題）`));
+    root.append(el('p', { class: 'lead' }, '請在此進行線上答題。選擇題會自動批改，混合題的手寫部分您可以點擊「對照參考答案」進行自我批改與核對。'));
+
+    // Score Card
+    const scoreCard = el('div', { class: 'score-summary-card', id: 'scoreCard' });
+    root.append(scoreCard);
+
+    const container = el('div', { class: 'quiz-container' });
+
+    items.forEach((item, index) => {
+      const isGraded = state.graded || (state.gradedQuestions && state.gradedQuestions[item.id]);
+      
+      // Determine card classes based on correctness if already graded
+      const cardClasses = ['quiz-card'];
+      if (isGraded) {
+        if (item.type === 'single') {
+          const given = state.quiz[item.id];
+          if (given === item.answer) {
+            cardClasses.push('correct');
+          } else {
+            cardClasses.push('incorrect');
+          }
+        } else if (item.type === 'multiple') {
+          const given = state.quiz[item.id] || [];
+          let k = 0;
+          const optionCount = item.options ? item.options.length : 4;
+          for (let oIdx = 0; oIdx < optionCount; oIdx++) {
+            const chosen = given.includes(oIdx);
+            const shouldChoose = item.answer.includes(oIdx);
+            if (chosen !== shouldChoose) k++;
+          }
+          if (k === 0) cardClasses.push('correct');
+          else cardClasses.push('incorrect');
+        }
+      }
+
+      const card = el('div', {
+        class: cardClasses.join(' '),
+        id: `card-${item.id}`,
+        'data-type': item.type,
+        'data-graded': isGraded ? 'true' : 'false'
+      });
+
+      const header = el('div', { class: 'quiz-header' });
+      header.append(el('div', { class: 'quiz-tag' }, item.type === 'single' ? '單選題' : item.type === 'multiple' ? '多選題' : '混合/非選擇題'));
+      card.append(header);
+
+      card.append(el('div', { class: 'quiz-question' }, item.q));
+
+      if (item.type === 'single') {
+        const opts = el('div', { class: 'quiz-options' });
+        item.options.forEach((optText, optIdx) => {
+          const isSelected = state.quiz[item.id] === optIdx;
+          const isCorrect = item.answer === optIdx;
+          const optEl = el('div', {
+            class: 'quiz-option' + (isSelected ? ' selected' : '') + (isGraded && isCorrect ? ' correct-answer' : ''),
+            onclick: () => selectSingleOption(item.id, optIdx)
+          });
+          optEl.append(el('div', { class: 'quiz-option-marker' }));
+          optEl.append(el('span', {}, optText));
+          opts.append(optEl);
+        });
+        card.append(opts);
+      } 
+      else if (item.type === 'multiple') {
+        const opts = el('div', { class: 'quiz-options' });
+        const currentSelections = state.quiz[item.id] || [];
+        item.options.forEach((optText, optIdx) => {
+          const isSelected = currentSelections.includes(optIdx);
+          const isCorrect = item.answer.includes(optIdx);
+          const optEl = el('div', {
+            class: 'quiz-option' + (isSelected ? ' selected' : '') + (isGraded && isCorrect ? ' correct-answer' : ''),
+            onclick: () => toggleMultipleOption(item.id, optIdx)
+          });
+          optEl.append(el('div', { class: 'quiz-option-marker' }));
+          optEl.append(el('span', {}, optText));
+          opts.append(optEl);
+        });
+        card.append(opts);
+
+        // Add a "Confirm Answer" button for multi-choice questions
+        const confirmBtn = el('button', {
+          class: 'confirm-multi-btn',
+          id: `confirm-${item.id}`,
+          style: 'margin-top: 12px; padding: 8px 16px; font-size: 14px; font-weight: 700; border-radius: var(--r-sm); background: var(--accent); color: white; border: none; cursor: pointer;' + (isGraded ? ' display: none;' : ''),
+          onclick: () => confirmMultipleAnswer(item.id)
+        }, '確認選項並看解析');
+        card.append(confirmBtn);
+      } 
+      else if (item.type === 'text') {
+        const textGroup = el('div', { class: 'quiz-text-input' });
+        
+        item.subQuestions.forEach((sub, subIdx) => {
+          const savedAnswer = (state.textAnswers[item.id] && state.textAnswers[item.id][subIdx]) || '';
+          
+          textGroup.append(el('div', { style: 'font-weight: 700; font-size: 14px; margin-bottom: 4px;' }, sub.label));
+          
+          const textareaGroup = el('div', { class: 'quiz-textarea-group' });
+          const textarea = el('textarea', {
+            class: 'quiz-textarea',
+            placeholder: sub.placeholder || '請在此輸入您的作答...',
+            oninput: (e) => handleTextAnswerInput(item.id, subIdx, e.target, item.id + '-' + subIdx + '-count')
+          }, savedAnswer);
+          
+          textareaGroup.append(textarea);
+          
+          const charCount = el('div', { class: 'char-counter', id: `${item.id}-${subIdx}-count` }, `${savedAnswer.length} 字`);
+          textareaGroup.append(charCount);
+          textGroup.append(textareaGroup);
+        });
+
+        // Rubric reveal button
+        const rubricBtn = el('button', {
+          class: 'rubric-btn',
+          type: 'button',
+          onclick: () => toggleRubric(item.id)
+        }, '顯示參考答案與評分規準');
+        textGroup.append(rubricBtn);
+
+        const rubricBox = el('div', { class: 'rubric-box', id: `rubric-${item.id}` });
+        rubricBox.append(el('div', { class: 'rubric-title' }, '【參考解答與評分標準】'));
+        rubricBox.append(el('div', { style: 'white-space: pre-wrap;' }, item.explanation));
+        textGroup.append(rubricBox);
+
+        card.append(textGroup);
+      }
+
+      // Add explanation (shown when graded for choice questions)
+      if (item.type !== 'text' && item.explanation) {
+        card.append(el('div', { class: 'explanation-box' }, item.explanation));
+      }
+
+      container.append(card);
+    });
+
+    root.append(container);
+
+    // Grading Actions Buttons
+    const actions = el('div', { class: 'quiz-actions' });
+    actions.append(el('button', { class: 'grade-btn', type: 'button', onclick: gradeQuiz }, '送出答案與評分'));
+    actions.append(el('button', { class: 'reset-btn', type: 'button', onclick: () => store.reset() }, '清除所有紀錄'));
+    root.append(actions);
+
+    return root;
+  }
+
+  /* ============================================================
+   * Quiz Logic Handlers
+   * ============================================================ */
+  function selectSingleOption(itemId, optIdx) {
+    if (state.graded || state.gradedQuestions[itemId]) return; // locked once graded
+    state.quiz[itemId] = optIdx;
+    state.gradedQuestions[itemId] = true;
+    store.save(state);
+    
+    gradeSingleQuestion(itemId, optIdx);
+    updateProgressUI();
+  }
+
+  function toggleMultipleOption(itemId, optIdx) {
+    if (state.graded || state.gradedQuestions[itemId]) return; // locked once graded
+    if (!state.quiz[itemId]) state.quiz[itemId] = [];
+    
+    const idxInArr = state.quiz[itemId].indexOf(optIdx);
+    if (idxInArr > -1) state.quiz[itemId].splice(idxInArr, 1);
+    else state.quiz[itemId].push(optIdx);
+    
+    store.save(state);
+
+    // Re-render options
+    const card = document.getElementById(`card-${itemId}`);
+    const options = card.querySelectorAll('.quiz-option');
+    options.forEach((opt, idx) => {
+      opt.classList.toggle('selected', state.quiz[itemId].includes(idx));
+    });
+    updateProgressUI();
+  }
+
+  function confirmMultipleAnswer(itemId) {
+    if (state.graded || state.gradedQuestions[itemId]) return;
+    
+    const selections = state.quiz[itemId] || [];
+    if (selections.length === 0) {
+      showToast('請先選擇至少一個選項！');
+      return;
+    }
+    
+    state.gradedQuestions[itemId] = true;
+    store.save(state);
+    
+    gradeMultipleQuestion(itemId);
+    updateProgressUI();
+  }
+
+  function gradeSingleQuestion(itemId, optIdx) {
+    const card = document.getElementById(`card-${itemId}`);
+    if (!card) return;
+    
+    card.setAttribute('data-graded', 'true');
+    
+    const item = window.COURSE.quiz.find(x => x.id === itemId);
+    if (!item) return;
+    
+    const correct = item.answer;
+    if (optIdx === correct) {
+      card.classList.add('correct');
+    } else {
+      card.classList.add('incorrect');
+    }
+    
+    const options = card.querySelectorAll('.quiz-option');
+    options.forEach((opt, idx) => {
+      opt.classList.toggle('selected', idx === optIdx);
+      opt.classList.toggle('correct-answer', idx === correct);
+    });
+  }
+
+  function gradeMultipleQuestion(itemId) {
+    const card = document.getElementById(`card-${itemId}`);
+    if (!card) return;
+    
+    card.setAttribute('data-graded', 'true');
+    
+    const item = window.COURSE.quiz.find(x => x.id === itemId);
+    if (!item) return;
+    
+    const given = state.quiz[itemId] || [];
+    const correct = item.answer;
+    
+    let k = 0;
+    const optionCount = item.options ? item.options.length : 4;
+    for (let oIdx = 0; oIdx < optionCount; oIdx++) {
+      const chosen = given.includes(oIdx);
+      const shouldChoose = correct.includes(oIdx);
+      if (chosen !== shouldChoose) k++;
+    }
+    
+    if (k === 0) {
+      card.classList.add('correct');
+    } else {
+      card.classList.add('incorrect');
+    }
+    
+    const options = card.querySelectorAll('.quiz-option');
+    options.forEach((opt, idx) => {
+      opt.classList.toggle('selected', given.includes(idx));
+      opt.classList.toggle('correct-answer', correct.includes(idx));
+    });
+    
+    const confirmBtn = document.getElementById(`confirm-${itemId}`);
+    if (confirmBtn) confirmBtn.style.display = 'none';
+  }
+
+  function handleTextAnswerInput(itemId, subIdx, textarea, countId) {
+    const text = textarea.value;
+    const countEl = document.getElementById(countId);
+    if (countEl) countEl.textContent = `${text.length} 字`;
+    
+    if (!state.textAnswers[itemId]) state.textAnswers[itemId] = {};
+    state.textAnswers[itemId][subIdx] = text;
+    store.save(state);
+    updateProgressUI();
+  }
+
+  function toggleRubric(itemId) {
+    const rubric = document.getElementById(`rubric-${itemId}`);
+    if (rubric) rubric.classList.toggle('visible');
+  }
+
+  function gradeQuiz() {
+    if (state.graded) {
+      showToast('測驗已評分！');
+      return;
+    }
+    
+    state.graded = true;
+    store.save(state);
+
+    // Calculate score
+    let correctCount = 0;
+    const quizItems = window.COURSE.quiz;
+    const totalQuestions = quizItems.length;
+    
+    // Grade choice questions
+    quizItems.forEach(item => {
+      const card = document.getElementById(`card-${item.id}`);
+      if (!card) return;
+      card.setAttribute('data-graded', 'true');
+
+      if (item.type === 'single') {
+        const given = state.quiz[item.id];
+        const correct = item.answer;
+        if (given === correct) {
+          card.classList.add('correct');
+          correctCount += 1;
+        } else {
+          card.classList.add('incorrect');
+        }
+      } 
+      else if (item.type === 'multiple') {
+        const given = state.quiz[item.id] || [];
+        const correct = item.answer;
+        
+        // Multi-choice grading: compare every available option.
+        // k = number of wrong decisions (option chosen but incorrect, or correct option not chosen)
+        let k = 0;
+        const optionCount = item.options ? item.options.length : 4;
+        for (let oIdx = 0; oIdx < optionCount; oIdx++) {
+          const chosen = given.includes(oIdx);
+          const shouldChoose = correct.includes(oIdx);
+          if (chosen !== shouldChoose) k++;
+        }
+
+        if (k === 0) {
+          card.classList.add('correct');
+          correctCount += 1;
+        } else {
+          card.classList.add('incorrect');
+        }
+      }
+      
+      // Update styling on options
+      if (item.type === 'single') {
+        const options = card.querySelectorAll('.quiz-option');
+        options.forEach((opt, idx) => {
+          opt.classList.toggle('correct-answer', idx === item.answer);
+        });
+      } else if (item.type === 'multiple') {
+        const options = card.querySelectorAll('.quiz-option');
+        options.forEach((opt, idx) => {
+          opt.classList.toggle('correct-answer', item.answer.includes(idx));
+        });
+      }
+    });
+
+    // Display Score Card
+    const scoreCard = document.getElementById('scoreCard');
+    clear(scoreCard);
+
+    const score = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+
+    // Total score: normalize all questions to 100 points.
+    scoreCard.append(el('h3', {}, '106 烘焙職種學科正式試卷評分完成！'));
+    scoreCard.append(el('div', { class: 'score-big' }, `${score.toFixed(1)} / 100`));
+    
+    let rating = '需要再加油！請詳細閱讀錯題解析，加強不熟練的學科觀念。';
+    let ratingClass = 'fail';
+    if (score >= 80) {
+      rating = '太棒了！展現出扎實的烘焙原料、製程、品質與食品衛生知識，繼續保持！';
+      ratingClass = 'pass';
+    } else if (score >= 60) {
+      rating = '表現不錯，大部分烘焙職種學科觀念均已掌握，複習錯題即可。';
+      ratingClass = 'pass';
+    }
+
+    scoreCard.append(el('div', { class: 'score-rating ' + ratingClass }, rating));
+    scoreCard.append(el('div', { class: 'score-detail', style: 'margin-top: 16px;' }, `說明：本題庫共 ${totalQuestions} 題，答對 ${correctCount} 題，換算為百分制。單選題答對即列為正確；複選題需完全符合答案才列為正確，無倒扣。您可以對照各題之【解析】進行盲點釐清與觀念補強。`));
+    scoreCard.classList.add('visible');
+
+    // Scroll to score card
+    scoreCard.scrollIntoView({ behavior: 'smooth' });
+
+    showToast('評分完成！請查閱解析。');
+    updateProgressUI();
+  }
+
+  /* ============================================================
+   * Sidebar, Progress and Navigation Sync
+   * ============================================================ */
+  function renderSidebar() {
+    const nav = document.getElementById('nav');
+    clear(nav);
+
+    // Prepend home link
+    const homeLink = el('a', {
+      class: 'nav-link home-nav-link',
+      href: '../',
+      style: 'border-bottom: 1.5px solid var(--border); padding-bottom: 12px; margin-bottom: 12px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 8px;'
+    }, '🏠 回到平台首頁');
+    nav.append(homeLink);
+
+    const chapters = [
+      { id: 'overview', title: '考試簡介' }
+    ];
+
+    if (window.COURSE.day1) {
+      chapters.push(
+        { id: 'day1-u-1', title: '壹、飲食文化與餐飲管理' },
+        { id: 'day1-u-2', title: '貳、食材與營養知識' },
+        { id: 'day1-u-3', title: '參、烹飪技法與專業器具' }
+      );
+    }
+
+    if (window.COURSE.materials && window.COURSE.materials.length) {
+      chapters.push({ id: 'materials-overview', title: '下載試題檔案' });
+    }
+
+    chapters.push({ id: 'quiz', title: '✨ 進入線上試卷' });
+
+    chapters.forEach(ch => {
+      const a = el('a', {
+        class: 'nav-link',
+        'data-target': ch.id,
+        onclick: (e) => {
+          e.preventDefault();
+          scrollToSection(ch.id);
+        }
+      }, ch.title);
+      nav.append(a);
+    });
+  }
+
+  function scrollToSection(id) {
+    const target = document.getElementById(id);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.toggle('active', link.dataset.target === id);
+      });
+      // Close sidebar on mobile
+      document.getElementById('app').classList.remove('sidebar-open');
+    }
+  }
+
+  function updateProgressUI() {
+    const quizItems = window.COURSE.quiz || [];
+    const choiceItems = quizItems.filter(item => item.type !== 'text');
+    const textItems = quizItems.filter(item => item.type === 'text');
+    
+    // Count answers
+    let answeredChoices = 0;
+    choiceItems.forEach(item => {
+      if (state.quiz[item.id] !== undefined) {
+        if (Array.isArray(state.quiz[item.id])) {
+          if (state.quiz[item.id].length > 0) answeredChoices++;
+        } else {
+          answeredChoices++;
+        }
+      }
+    });
+
+    let answeredText = 0;
+    textItems.forEach(item => {
+      if (state.textAnswers[item.id]) {
+        // Count subquestions filled
+        const subCount = Object.keys(state.textAnswers[item.id]).length;
+        if (subCount === item.subQuestions.length) answeredText++;
+      }
+    });
+
+    const totalQuestions = quizItems.length;
+    const answeredTotal = answeredChoices + answeredText;
+    const percent = totalQuestions > 0 ? Math.round((answeredTotal / totalQuestions) * 100) : 0;
+
+    const progressPercent = document.getElementById('progressPercent');
+    const progressBar = document.getElementById('progressBar');
+    
+    if (progressPercent) progressPercent.textContent = `${percent}%`;
+    if (progressBar) progressBar.style.width = `${percent}%`;
+
+    // Update accordion pills
+    updateAccordionPills(answeredChoices, answeredText);
+  }
+
+  function updateAccordionPills(choices, texts) {
+    const quizItems = window.COURSE.quiz || [];
+    const units = (window.COURSE.day1 && window.COURSE.day1.units) || [];
+
+    units.forEach(unit => {
+      const unitKey = `day1.${unit.id}`;
+      const unitItems = quizItems.filter(item => item.sourceUnit === unitKey);
+      const answered = unitItems.filter(item => {
+        if (item.type === 'text') {
+          const saved = state.textAnswers[item.id] || {};
+          return item.subQuestions && Object.keys(saved).length === item.subQuestions.length;
+        }
+        const saved = state.quiz[item.id];
+        return Array.isArray(saved) ? saved.length > 0 : saved !== undefined;
+      }).length;
+
+      const pill = document.getElementById(`pill-${unit.id}`);
+      if (pill) pill.textContent = `${answered} / ${unitItems.length}`;
+      toggleAccordionDone(`day1-${unit.id}`, unitItems.length > 0 && answered === unitItems.length);
+    });
+  }
+
+  function toggleAccordionDone(id, isDone) {
+    const acc = document.getElementById(id);
+    if (acc) {
+      acc.classList.toggle('done', isDone);
+    }
+  }
+
+  /* ============================================================
+   * Timer Script (120 Minutes)
+   * ============================================================ */
+  let examTimer = null;
+  let timeRemaining = (window.COURSE && window.COURSE.meta && window.COURSE.meta.timerSeconds)
+    ? window.COURSE.meta.timerSeconds
+    : 3600; // 120 mins in seconds
+  let timerRunning = false;
+
+  function initTimer() {
+    const timerDisplay = document.getElementById('timerDisplay');
+    const timerToggleBtn = document.getElementById('timerToggleBtn');
+    const timerWidget = document.getElementById('timerWidget');
+
+    // Load saved time if any
+    const savedTime = localStorage.getItem(`${STORE_KEY}-time-remaining`);
+    if (savedTime !== null) {
+      timeRemaining = parseInt(savedTime, 10);
+    }
+    updateTimerDisplay();
+
+    timerToggleBtn.addEventListener('click', () => {
+      if (timerRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    });
+  }
+
+  function startTimer() {
+    timerRunning = true;
+    document.getElementById('timerToggleBtn').textContent = '暫停計時';
+    document.getElementById('timerWidget').classList.add('running');
+    
+    examTimer = setInterval(() => {
+      if (timeRemaining > 0) {
+        timeRemaining--;
+        updateTimerDisplay();
+        localStorage.setItem(`${STORE_KEY}-time-remaining`, timeRemaining);
+        
+        // Time warning
+        if (timeRemaining === 600) {
+          showToast('⚠️ 注意：剩餘時間 10 分鐘！');
+        } else if (timeRemaining === 300) {
+          showToast('⚠️ 警告：剩餘時間 5 分鐘！');
+        }
+      } else {
+        expireTimer();
+      }
+    }, 1000);
+  }
+
+  function pauseTimer() {
+    timerRunning = false;
+    document.getElementById('timerToggleBtn').textContent = '恢復計時';
+    document.getElementById('timerWidget').classList.remove('running');
+    clearInterval(examTimer);
+  }
+
+  function expireTimer() {
+    timerRunning = false;
+    clearInterval(examTimer);
+    document.getElementById('timerWidget').classList.add('expired');
+    document.getElementById('timerDisplay').textContent = '時間到';
+    document.getElementById('timerToggleBtn').textContent = '測驗結束';
+    document.getElementById('timerToggleBtn').disabled = true;
+    showToast('🚨 測驗時間已到！系統已自動存檔，請送出試卷進行評分。');
+    gradeQuiz();
+  }
+
+  function updateTimerDisplay() {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    document.getElementById('timerDisplay').textContent = 
+      `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  /* ============================================================
+   * Unified Material Viewer Modal (Pattern 10 & 11)
+   * ============================================================ */
+  function openViewer(url) {
+    const modal = el('div', { class: 'viewer-modal' });
+    modal.append(el('div', { class: 'viewer-backdrop', onclick: () => closeViewer(modal) }));
+    
+    const frame = el('div', { class: 'viewer-frame' });
+    frame.append(el('button', { class: 'viewer-close', type: 'button', onclick: () => closeViewer(modal) }, '×'));
+    
+    // We can't render raw Markdown directly inside an iframe simply, so let's load a custom viewer if it is an MD file
+    const iframeUrl = url.endsWith('.md') ? `viewer.html?file=${encodeURIComponent(url)}` : url;
+    frame.append(el('iframe', { src: iframeUrl, loading: 'lazy' }));
+    modal.append(frame);
+    
+    document.body.appendChild(modal);
+    document.body.style.overflow = 'hidden'; // Body Scroll Lock (Pattern 11)
+
+    // Esc to close
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') {
+        closeViewer(modal);
+        document.removeEventListener('keydown', esc);
+      }
+    });
+  }
+
+  function closeViewer(modal) {
+    modal.remove();
+    document.body.style.overflow = '';
+  }
+
+  /* ============================================================
+   * Theme switcher
+   * ============================================================ */
+  function initTheme() {
+    const themeToggle = document.getElementById('themeToggle');
+    const initialTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', initialTheme);
+    themeToggle.textContent = initialTheme === 'dark' ? '切換淺色' : '切換深色';
+
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      themeToggle.textContent = next === 'dark' ? '切換淺色' : '切換深色';
+      showToast(`主題已切換為 ${next === 'dark' ? '深色' : '淺色'}`);
+    });
+  }
+
+  /* ============================================================
+   * Sync Mechanism (QR Code Syncing)
+   * ============================================================ */
+  function initSync() {
+    const syncBtn = document.getElementById('syncBtn');
+    if (syncBtn) {
+      syncBtn.addEventListener('click', showSyncModal);
+    }
+    
+    // If a sync was just loaded, show a toast after a short delay
+    if (window.__syncLoaded) {
+      setTimeout(() => {
+        showToast('🟢 已成功同步並載入作答進度！');
+      }, 500);
+    }
+  }
+
+  function showSyncModal() {
+    if (typeof QRCode === 'undefined') {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      script.onload = () => generateSyncQR();
+      document.head.appendChild(script);
+    } else {
+      generateSyncQR();
+    }
+  }
+
+  function generateSyncQR() {
+    const code = compressState();
+    const syncUrl = `${window.location.origin}${window.location.pathname}#sync=${encodeURIComponent(code)}`;
+    
+    let modal = document.getElementById('syncModal');
+    if (!modal) {
+      modal = el('div', { id: 'syncModal', class: 'modal-overlay' },
+        el('div', { class: 'modal-content' },
+          el('h3', {}, '手機接續作答 / 進度同步'),
+          el('p', { class: 'modal-desc' }, '請使用手機相機或 LINE 掃描下方二維碼，即可同步您目前的答題進度與計時時間，在手機上繼續測驗。'),
+          el('div', { id: 'qrcodeCanvas', class: 'qrcode-container' }),
+          el('div', { class: 'manual-link-container' },
+            el('span', {}, '手動複製連結：'),
+            el('input', { id: 'syncUrlInput', type: 'text', readonly: true, value: syncUrl, onclick: (e) => e.target.select() }),
+            el('button', {
+              class: 'copy-link-btn',
+              onclick: () => {
+                const input = document.getElementById('syncUrlInput');
+                input.select();
+                document.execCommand('copy');
+                showToast('📋 連結已複製到剪貼簿！');
+              }
+            }, '複製連結')
+          ),
+          el('button', { class: 'close-modal-btn', onclick: hideSyncModal }, '關閉')
+        )
+      );
+      document.body.append(modal);
+    } else {
+      document.getElementById('syncUrlInput').value = syncUrl;
+    }
+    
+    const qrcodeCanvas = document.getElementById('qrcodeCanvas');
+    qrcodeCanvas.innerHTML = '';
+    
+    new QRCode(qrcodeCanvas, {
+      text: syncUrl,
+      width: 200,
+      height: 200,
+      colorDark : "#000000",
+      colorLight : "#ffffff",
+      correctLevel : QRCode.CorrectLevel.M
+    });
+    
+    modal.classList.add('active');
+  }
+
+  function hideSyncModal() {
+    const modal = document.getElementById('syncModal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  /* ============================================================
+   * Toast helper
+   * ============================================================ */
+  function showToast(msg) {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+
+    const t = el('div', { class: 'toast' }, msg);
+    document.body.appendChild(t);
+    setTimeout(() => t.classList.add('show'), 10);
+    setTimeout(() => {
+      t.classList.remove('show');
+      setTimeout(() => t.remove(), 300);
+    }, 2500);
+  }
+
+  /* ============================================================
+   * ScrollSpy (Auto-highlight Current Section)
+   * ============================================================ */
+  function setupScrollSpy() {
+    const sections = document.querySelectorAll('[data-section-id]');
+    const links = document.querySelectorAll('.nav-link');
+    
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.dataset.sectionId;
+          links.forEach(a => {
+            a.classList.toggle('active', a.dataset.target === id);
+          });
+          // Update breadcrumb
+          const text = Array.from(links).find(a => a.dataset.target === id)?.textContent || '';
+          if (text) {
+            const trail = document.getElementById('topbarTrail');
+            trail.innerHTML = '';
+            const homeA = el('a', { href: '../', style: 'color: inherit; text-decoration: none; font-weight: 700;' }, '首頁');
+            trail.append(homeA);
+            trail.append(document.createTextNode(` / ${text}`));
+          }
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+    
+    sections.forEach(s => observer.observe(s));
+  }
+
+  /* ============================================================
+   * RWD Menu Button
+   * ============================================================ */
+  function initMobileMenu() {
+    const topbar = document.querySelector('.topbar');
+    const menuBtn = el('button', {
+      class: 'timer-btn',
+      style: 'margin-right: 12px; display: none; padding: 6px 12px;',
+      type: 'button',
+      onclick: toggleMobileSidebar
+    }, '☰ 選單');
+    
+    // Inject menu button on small screen
+    topbar.prepend(menuBtn);
+    
+    // Backdrop for mobile sidebar
+    const backdrop = el('div', {
+      id: 'sidebarBackdrop',
+      onclick: toggleMobileSidebar
+    });
+    document.body.appendChild(backdrop);
+    
+    // Add CSS rules dynamically for RWD button
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media (max-width: 992px) {
+        .topbar button[onclick="toggleMobileSidebar"] { display: inline-flex !important; }
+        #sidebarBackdrop.sidebar-backdrop-active {
+          position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
+          background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 95;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function toggleMobileSidebar() {
+    const app = document.getElementById('app');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    app.classList.toggle('sidebar-open');
+    backdrop.classList.toggle('sidebar-backdrop-active');
+  }
+
+  /* ============================================================
+   * init() — entry point
+   * ============================================================ */
+  function init() {
+    const content = document.getElementById('content');
+    
+    // Render sections
+    const overview = renderOverview();
+    if (overview) content.append(overview);
+
+    const day1 = renderDay('day1');
+    if (day1) content.append(day1);
+
+    const materials = renderMaterials();
+    if (materials) content.append(materials);
+
+    const quiz = renderQuiz();
+    if (quiz) content.append(quiz);
+
+    // Initialize scripts
+    renderSidebar();
+    initMobileMenu();
+    initTheme();
+    initTimer();
+    initSync();
+    updateProgressUI();
+    setupScrollSpy();
+  }
+  document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
+
+
+
+
+
+
