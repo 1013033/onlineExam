@@ -8,13 +8,13 @@
 <head>
   <script>
     // Enforce trailing slash so relative assets (style.css, course-data.js) resolve correctly
-    if (window.location.pathname.endsWith('/106-baking')) {
+    if (window.location.pathname.endsWith('/106-baking-contest')) {
       window.location.replace(window.location.pathname + '/' + window.location.search + window.location.hash);
     }
   </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>106 學年度烘焙學科模擬試卷 - 線上測驗系統</title>
+  <title>106 學年度烘焙學科正式試卷 - 線上測驗系統</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,7 +24,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="brand" onclick="location.href='../'" style="cursor: pointer;" title="回到平台首頁">
         <div class="brand-eyebrow" id="programLabel">商業類技藝競賽</div>
-        <div class="brand-title" id="platformTitle">烘焙學科模擬試卷</div>
+        <div class="brand-title" id="platformTitle">烘焙學科正式試卷</div>
       </div>
       <nav class="nav" id="nav"><!-- populated by renderSidebar() --></nav>
       <div class="nav-progress" id="navProgress">
@@ -70,7 +70,7 @@
    * ============================================================ */
   const STORE_KEY = (window.COURSE && window.COURSE.meta && window.COURSE.meta.storeKey)
     ? window.COURSE.meta.storeKey
-    : '106-baking-progress-v1';
+    : '106-baking-contest-progress-v1';
 
   function compressState() {
     const quizItems = window.COURSE.quiz || [];
@@ -306,7 +306,7 @@
   function getMaterialUrl(name, type) {
     const base = 'course-package/materials';
     if (name.includes('106') || name.includes('烘焙')) {
-      return `${base}/106H烘焙學科試題.md`;
+      return `${base}/106H烘焙正式學科試題.md`;
     }
     return null;
   }
@@ -818,8 +818,8 @@
     const scoreCard = document.getElementById('scoreCard');
     clear(scoreCard);
 
-    // Total score: 100 points
-    scoreCard.append(el('h3', {}, '106學年度烘焙學科模擬試卷評分完成！'));
+    // Total score: 100 points (50 questions, 2 pts each)
+    scoreCard.append(el('h3', {}, '106學年度烘焙學科正式試卷評分完成！'));
     scoreCard.append(el('div', { class: 'score-big' }, `${score.toFixed(1)} / 100`));
     
     let rating = '需要再加油！請詳細閱讀錯題解析，加強不熟練的學科觀念。';

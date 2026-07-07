@@ -1,7 +1,7 @@
-{
-  "name": "106-baking-exam",
+﻿{
+  "name": "111-baking-exam",
   "version": "1.0.0",
-  "description": "106學年度全國高級中等學校商業類科學生技藝競賽烘焙職種學科模擬試卷線上考場",
+  "description": "111 學年度烘焙職種學科正式試題線上考場",
   "scripts": {
     "dev": "node dev-server.js",
     "build": "node md-to-data.js",
@@ -9,3 +9,14 @@
     "serve": "npx serve ."
   }
 }
+
+
+
+
+
+
+
+
+
+
+

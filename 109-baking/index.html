@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <!--
   index.html - Mock Exam Online Platform
   Schema authority:  ./course-package/_shared/domain-primitives.md
@@ -8,13 +8,13 @@
 <head>
   <script>
     // Enforce trailing slash so relative assets (style.css, course-data.js) resolve correctly
-    if (window.location.pathname.endsWith('/106-baking')) {
+    if (window.location.pathname.endsWith('/109-baking')) {
       window.location.replace(window.location.pathname + '/' + window.location.search + window.location.hash);
     }
   </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>106 學年度烘焙學科模擬試卷 - 線上測驗系統</title>
+  <title>109 學年度烘焙職種學科正式試題 - 線上測驗系統</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,8 +23,8 @@
     <!-- ===== sidebar (fixed left, navigation + progress) ===== -->
     <aside class="sidebar" id="sidebar">
       <div class="brand" onclick="location.href='../'" style="cursor: pointer;" title="回到平台首頁">
-        <div class="brand-eyebrow" id="programLabel">商業類技藝競賽</div>
-        <div class="brand-title" id="platformTitle">烘焙學科模擬試卷</div>
+        <div class="brand-eyebrow" id="programLabel">商業類科學生技藝競賽</div>
+        <div class="brand-title" id="platformTitle">109 烘焙職種學科正式試題</div>
       </div>
       <nav class="nav" id="nav"><!-- populated by renderSidebar() --></nav>
       <div class="nav-progress" id="navProgress">
@@ -46,7 +46,7 @@
         <div class="topbar-quick">
           <!-- Timer Widget -->
           <div class="timer-widget" id="timerWidget">
-            ⏱️ 剩餘時間: <span id="timerDisplay">90:00</span>
+            ⏱️ 剩餘時間: <span id="timerDisplay">60:00</span>
           </div>
           <button class="timer-btn" id="timerToggleBtn" type="button">開始計時</button>
           <button class="timer-btn" id="syncBtn" type="button">手機接續</button>
@@ -70,7 +70,7 @@
    * ============================================================ */
   const STORE_KEY = (window.COURSE && window.COURSE.meta && window.COURSE.meta.storeKey)
     ? window.COURSE.meta.storeKey
-    : '106-baking-progress-v1';
+    : '109-baking-progress-v1';
 
   function compressState() {
     const quizItems = window.COURSE.quiz || [];
@@ -305,8 +305,8 @@
    * ============================================================ */
   function getMaterialUrl(name, type) {
     const base = 'course-package/materials';
-    if (name.includes('106') || name.includes('烘焙')) {
-      return `${base}/106H烘焙學科試題.md`;
+    if (name.includes('baking-109') || name.includes('烘焙職種')) {
+      return `${base}/baking-109-official-exam.md`;
     }
     return null;
   }
@@ -321,7 +321,7 @@
     });
     
     let icon = '🍳';
-    let desc = '中餐烹飪學科測驗示意圖';
+    let desc = '烘焙職種學科測驗示意圖';
     if (name.includes('culture')) {
       icon = '🏮';
       desc = '飲食文化與餐飲管理';
@@ -435,7 +435,10 @@
     // Objectives
     root.append(el('h3', {}, '線上測驗學習目標'));
     const ul = el('ul', { class: 'list' });
-    window.COURSE.meta.objectives.forEach(obj => ul.append(el('li', {}, obj)));
+    const objectives = (window.COURSE.meta && Array.isArray(window.COURSE.meta.objectives))
+      ? window.COURSE.meta.objectives
+      : [];
+    objectives.forEach(obj => ul.append(el('li', {}, obj)));
     root.append(ul);
 
     // Schedule Table
@@ -504,7 +507,8 @@
         } else if (item.type === 'multiple') {
           const given = state.quiz[item.id] || [];
           let k = 0;
-          for (let oIdx = 0; oIdx < 5; oIdx++) {
+          const optionCount = item.options ? item.options.length : 4;
+          for (let oIdx = 0; oIdx < optionCount; oIdx++) {
             const chosen = given.includes(oIdx);
             const shouldChoose = item.answer.includes(oIdx);
             if (chosen !== shouldChoose) k++;
@@ -708,7 +712,8 @@
     const correct = item.answer;
     
     let k = 0;
-    for (let oIdx = 0; oIdx < 5; oIdx++) {
+    const optionCount = item.options ? item.options.length : 4;
+    for (let oIdx = 0; oIdx < optionCount; oIdx++) {
       const chosen = given.includes(oIdx);
       const shouldChoose = correct.includes(oIdx);
       if (chosen !== shouldChoose) k++;
@@ -756,8 +761,9 @@
     store.save(state);
 
     // Calculate score
-    let score = 0;
+    let correctCount = 0;
     const quizItems = window.COURSE.quiz;
+    const totalQuestions = quizItems.length;
     
     // Grade choice questions
     quizItems.forEach(item => {
@@ -770,7 +776,7 @@
         const correct = item.answer;
         if (given === correct) {
           card.classList.add('correct');
-          score += 2; // Each question is 2 points
+          correctCount += 1;
         } else {
           card.classList.add('incorrect');
         }
@@ -779,25 +785,22 @@
         const given = state.quiz[item.id] || [];
         const correct = item.answer;
         
+        // Multi-choice grading: compare every available option.
+        // k = number of wrong decisions (option chosen but incorrect, or correct option not chosen)
         let k = 0;
-        for (let oIdx = 0; oIdx < 5; oIdx++) {
+        const optionCount = item.options ? item.options.length : 4;
+        for (let oIdx = 0; oIdx < optionCount; oIdx++) {
           const chosen = given.includes(oIdx);
           const shouldChoose = correct.includes(oIdx);
           if (chosen !== shouldChoose) k++;
         }
 
-        let itemScore = 0;
-        if (k === 0) itemScore = 4;
-        else if (k === 1) itemScore = 2.4;
-        else if (k === 2) itemScore = 0.8;
-        else itemScore = 0;
-
-        if (itemScore === 4) {
+        if (k === 0) {
           card.classList.add('correct');
+          correctCount += 1;
         } else {
           card.classList.add('incorrect');
         }
-        score += itemScore;
       }
       
       // Update styling on options
@@ -818,22 +821,24 @@
     const scoreCard = document.getElementById('scoreCard');
     clear(scoreCard);
 
-    // Total score: 100 points
-    scoreCard.append(el('h3', {}, '106學年度烘焙學科模擬試卷評分完成！'));
+    const score = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+
+    // Total score: normalize all questions to 100 points.
+    scoreCard.append(el('h3', {}, '109 烘焙職種學科正式試題評分完成！'));
     scoreCard.append(el('div', { class: 'score-big' }, `${score.toFixed(1)} / 100`));
     
     let rating = '需要再加油！請詳細閱讀錯題解析，加強不熟練的學科觀念。';
     let ratingClass = 'fail';
     if (score >= 80) {
-      rating = '太棒了！展現出極佳的烘焙專業學術知識，繼續保持！';
+      rating = '太棒了！展現出扎實的烘焙原料、製程、品質與食品衛生知識，繼續保持！';
       ratingClass = 'pass';
     } else if (score >= 60) {
-      rating = '表現不錯，大部分烘焙實務觀念均已掌握，複習錯題即可。';
+      rating = '表現不錯，大部分烘焙職種學科觀念均已掌握，複習錯題即可。';
       ratingClass = 'pass';
     }
 
     scoreCard.append(el('div', { class: 'score-rating ' + ratingClass }, rating));
-    scoreCard.append(el('div', { class: 'score-detail', style: 'margin-top: 16px;' }, '說明：本測驗滿分為 100 分。選擇題答對即得分，無倒扣計分。您可以對照各題之【解析】進行盲點釐清與觀念補強。'));
+    scoreCard.append(el('div', { class: 'score-detail', style: 'margin-top: 16px;' }, `說明：本題庫共 ${totalQuestions} 題，答對 ${correctCount} 題，換算為百分制。單選題答對即列為正確；複選題需完全符合答案才列為正確，無倒扣。您可以對照各題之【解析】進行盲點釐清與觀念補強。`));
     scoreCard.classList.add('visible');
 
     // Scroll to score card
@@ -864,9 +869,9 @@
 
     if (window.COURSE.day1) {
       chapters.push(
-        { id: 'day1-u-1', title: '壹、烘焙工藝與計算' },
-        { id: 'day1-u-2', title: '貳、蛋糕包裝與保存' },
-        { id: 'day1-u-3', title: '參、食品營養與衛生安全' }
+        { id: 'day1-u-1', title: '壹、飲食文化與餐飲管理' },
+        { id: 'day1-u-2', title: '貳、食材與營養知識' },
+        { id: 'day1-u-3', title: '參、烹飪技法與專業器具' }
       );
     }
 
@@ -942,36 +947,25 @@
   }
 
   function updateAccordionPills(choices, texts) {
-    // Q1-Q24 in u-1
-    let u1Count = 0;
-    for(let i=1; i<=24; i++) {
-      if (state.quiz[`q${i}`] !== undefined) u1Count++;
-    }
-    const pill1 = document.getElementById('pill-u-1');
-    if (pill1) pill1.textContent = `${u1Count} / 24`;
+    const quizItems = window.COURSE.quiz || [];
+    const units = (window.COURSE.day1 && window.COURSE.day1.units) || [];
 
-    // Q25-Q31 in u-2
-    let u2Count = 0;
-    for(let i=25; i<=31; i++) {
-      if (state.quiz[`q${i}`] && state.quiz[`q${i}`].length > 0) u2Count++;
-    }
-    const pill2 = document.getElementById('pill-u-2');
-    if (pill2) pill2.textContent = `${u2Count} / 7`;
+    units.forEach(unit => {
+      const unitKey = `day1.${unit.id}`;
+      const unitItems = quizItems.filter(item => item.sourceUnit === unitKey);
+      const answered = unitItems.filter(item => {
+        if (item.type === 'text') {
+          const saved = state.textAnswers[item.id] || {};
+          return item.subQuestions && Object.keys(saved).length === item.subQuestions.length;
+        }
+        const saved = state.quiz[item.id];
+        return Array.isArray(saved) ? saved.length > 0 : saved !== undefined;
+      }).length;
 
-    // Q32-Q36 in u-3
-    let u3Count = 0;
-    if (state.quiz['q32'] !== undefined) u3Count++;
-    if (state.quiz['q33'] !== undefined) u3Count++;
-    if (state.textAnswers['q34'] && Object.keys(state.textAnswers['q34']).length === 4) u3Count++;
-    if (state.textAnswers['q35'] && Object.keys(state.textAnswers['q35']).length === 1) u3Count++;
-    if (state.textAnswers['q36'] && Object.keys(state.textAnswers['q36']).length === 2) u3Count++;
-    const pill3 = document.getElementById('pill-u-3');
-    if (pill3) pill3.textContent = `${u3Count} / 5`;
-
-    // Set accordion class to done if finished
-    toggleAccordionDone('day1-u-1', u1Count === 24);
-    toggleAccordionDone('day1-u-2', u2Count === 7);
-    toggleAccordionDone('day1-u-3', u3Count === 5);
+      const pill = document.getElementById(`pill-${unit.id}`);
+      if (pill) pill.textContent = `${answered} / ${unitItems.length}`;
+      toggleAccordionDone(`day1-${unit.id}`, unitItems.length > 0 && answered === unitItems.length);
+    });
   }
 
   function toggleAccordionDone(id, isDone) {
@@ -982,12 +976,12 @@
   }
 
   /* ============================================================
-   * Timer Script (90 Minutes)
+   * Timer Script (120 Minutes)
    * ============================================================ */
   let examTimer = null;
   let timeRemaining = (window.COURSE && window.COURSE.meta && window.COURSE.meta.timerSeconds)
     ? window.COURSE.meta.timerSeconds
-    : 5400; // 90 mins in seconds
+    : 3600; // 120 mins in seconds
   let timerRunning = false;
 
   function initTimer() {
@@ -1311,3 +1305,13 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+

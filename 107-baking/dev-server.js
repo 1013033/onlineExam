@@ -16,11 +16,12 @@
 
 'use strict';
 const http = require('http');
+const net = require('net');
 const fs   = require('fs');
 const path = require('path');
 const { build } = require('./md-to-data');
 
-const PORT    = 3456;
+const PORT    = Number(process.env.PORT || 3456);
 const ROOT    = __dirname;
 const CONTENT = path.join(ROOT, 'content.md');
 
@@ -137,17 +138,38 @@ try {
   console.warn('[dev-server] ⚠️  Initial build error:', e.message);
 }
 
-server.listen(PORT, () => {
-  console.log('');
-  console.log('┌─────────────────────────────────────────────┐');
-  console.log('│  🚀  Dev Server Ready                       │');
-  console.log('│                                             │');
-  console.log(`│  Open: http://localhost:${PORT}/               │`);
-  console.log('│                                             │');
-  console.log('│  ✏️   Edit content.md → browser auto-reloads │');
-  console.log('│  ⏹   Ctrl+C to stop                         │');
-  console.log('└─────────────────────────────────────────────┘');
-  console.log('');
+function findAvailablePort(startPort, attemptsLeft = 10) {
+  return new Promise((resolve, reject) => {
+    const tester = net.createServer()
+      .once('error', err => {
+        if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
+          resolve(findAvailablePort(startPort + 1, attemptsLeft - 1));
+        } else {
+          reject(err);
+        }
+      })
+      .once('listening', () => {
+        tester.close(() => resolve(startPort));
+      })
+      .listen(startPort);
+  });
+}
+
+findAvailablePort(PORT).then(port => {
+  if (port !== PORT) {
+    console.warn(`[dev-server] Port ${PORT} is already in use; using ${port} instead.`);
+  }
+  server.listen(port, () => {
+    console.log('');
+    console.log('Dev Server Ready');
+    console.log(`Open: http://localhost:${port}/`);
+    console.log('Edit content.md -> browser auto-reloads');
+    console.log('Ctrl+C to stop');
+    console.log('');
+  });
+}).catch(err => {
+  console.error('[dev-server] Could not start server:', err.message);
+  process.exit(1);
 });
 
 watchAndRebuild();
