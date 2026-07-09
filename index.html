@@ -1,389 +1,785 @@
 <!doctype html>
-<!--
-  web/index.html — Mock Exam Platform Portal
-  Content controlled by: 114-4-chinese/content.md  (# PORTAL section)
-  Build: cd 114-4-chinese && npm run build
--->
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>學術能力模擬檢測 - 線上測驗平台入口</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  <title>線上考場入口</title>
   <style>
     :root {
-      --bg: oklch(98% 0.005 240);
-      --surface: oklch(100% 0 0);
-      --surface-2: oklch(96.5% 0.008 245);
-      --fg: oklch(16% 0.015 245);
-      --muted: oklch(50% 0.015 245);
-      --border: oklch(90% 0.006 245);
-      --accent: oklch(56% 0.19 255);
-      --accent-soft: oklch(94% 0.035 255);
-      --accent-2: oklch(62% 0.16 65);
-      --r-md: 12px;
-      --shadow-lift: 0 10px 30px -15px oklch(20% 0.02 245 / 0.12),
-                     0 3px 8px -3px oklch(20% 0.02 245 / 0.04);
-      --shadow-hover: 0 18px 40px -10px oklch(20% 0.02 245 / 0.18),
-                      0 5px 15px -3px oklch(20% 0.02 245 / 0.06);
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: oklch(15% 0.015 250);
-        --surface: oklch(19.5% 0.015 250);
-        --surface-2: oklch(22.5% 0.015 250);
-        --fg: oklch(95% 0.006 250);
-        --muted: oklch(65% 0.012 250);
-        --border: oklch(26% 0.016 250);
-        --accent: oklch(68% 0.16 255);
-        --accent-soft: oklch(28% 0.07 255);
-        --shadow-lift: 0 12px 35px -15px oklch(0% 0 0 / 0.5),
-                       0 4px 10px -3px oklch(0% 0 0 / 0.25);
-        --shadow-hover: 0 20px 45px -10px oklch(0% 0 0 / 0.65),
-                        0 6px 18px -3px oklch(0% 0 0 / 0.35);
-      }
-    }
-    body {
-      background: var(--bg);
-      color: var(--fg);
-      font-family: "Noto Sans TC", "Nunito", sans-serif;
-      margin: 0;
-      padding: 48px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-    header {
-      text-align: center;
-      margin-bottom: 48px;
-      max-width: 600px;
-    }
-    h1 {
-      font-size: 32px;
-      font-weight: 900;
-      margin: 0 0 12px;
-      letter-spacing: -0.02em;
-    }
-    .subtitle {
-      font-size: 16px;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 24px;
-      width: 100%;
-      max-width: 1000px;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r-md);
-      padding: 28px;
-      box-shadow: var(--shadow-lift);
-      display: flex;
-      flex-direction: column;
-      transition: all 250ms ease;
-      position: relative;
-      overflow: hidden;
-    }
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--shadow-hover);
-      border-color: var(--accent);
-    }
-    .card-tag {
-      font-size: 11px;
-      font-weight: 800;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 12px;
-    }
-    .card-title {
-      font-size: 20px;
-      font-weight: 800;
-      margin: 0 0 12px;
-      line-height: 1.4;
-    }
-    .card-desc {
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.6;
-      margin-bottom: 24px;
-      flex: 1;
-    }
-    .card-meta {
-      display: flex;
-      gap: 16px;
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 20px;
-      border-top: 1px solid var(--border);
-      padding-top: 16px;
-    }
-    .card-btn {
-      display: inline-block;
-      text-align: center;
-      background: var(--accent);
-      color: white;
-      text-decoration: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 14px;
-      transition: all 150ms ease;
-    }
-    .card-btn:hover {
-      background: color-mix(in oklab, var(--accent) 80%, black);
-      text-decoration: none;
-    }
-    .card.placeholder {
-      border-style: dashed;
-      border-width: 2px;
-      background: transparent;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      padding: 40px;
-    }
-    .card.placeholder:hover {
-      border-color: var(--muted);
-      transform: none;
-      box-shadow: var(--shadow-lift);
-    }
-    .placeholder-icon {
-      font-size: 40px;
-      margin-bottom: 12px;
-      opacity: 0.6;
-    }
-    .placeholder-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--muted);
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --surface: #ffffff;
+      --surface-2: #eef3f5;
+      --fg: #172024;
+      --muted: #607078;
+      --border: #d9e0de;
+      --accent: #176b87;
+      --accent-2: #ba5a31;
+      --accent-3: #4f7b45;
+      --soft-blue: #e7f2f6;
+      --soft-rust: #f8ebe4;
+      --soft-green: #e9f3e7;
+      --shadow: 0 16px 36px rgba(23, 32, 36, 0.08);
     }
 
-    /* Header Sync Button */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #101518;
+        --surface: #171e22;
+        --surface-2: #1f292e;
+        --fg: #eef4f3;
+        --muted: #9caaa8;
+        --border: #2e3a3f;
+        --accent: #73bdd4;
+        --accent-2: #e59770;
+        --accent-3: #91c489;
+        --soft-blue: #17303a;
+        --soft-rust: #3a241a;
+        --soft-green: #20321e;
+        --shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 55%, transparent), transparent 280px),
+        var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 36px 0 56px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 44px);
+      line-height: 1.15;
+      font-weight: 900;
+    }
+
+    .subtitle {
+      max-width: 720px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .sync-all-btn,
+    .nav-btn,
+    .card-btn,
+    .copy-link-btn,
+    .close-modal-btn {
+      min-height: 42px;
+      border-radius: 8px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
     .sync-all-btn {
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--fg);
+      padding: 0 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      margin: 26px 0 28px;
+      padding: 12px;
+      background: color-mix(in srgb, var(--bg) 86%, transparent);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      backdrop-filter: blur(16px);
+    }
+
+    .search {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--fg);
+      font: inherit;
+      font-size: 15px;
+    }
+
+    .category-nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav-btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--fg);
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+
+    .nav-btn.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+
+    .summary-tile {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--fg);
+      cursor: pointer;
+      font: inherit;
+      text-align: left;
+    }
+
+    .summary-tile strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .summary-tile span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .summary-count {
+      color: var(--accent);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .category {
+      margin-top: 34px;
+      scroll-margin-top: 94px;
+    }
+
+    .category.hidden,
+    .card.hidden,
+    .subgroup.hidden {
+      display: none;
+    }
+
+    .category-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .category-heading h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.3;
+    }
+
+    .category-heading p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .category-count {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .subgroup {
+      margin-top: 22px;
+    }
+
+    .subgroup:first-child {
+      margin-top: 0;
+    }
+
+    .subgroup-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .subgroup-heading::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .subgroup-count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .card {
+      display: flex;
+      min-height: 286px;
+      flex-direction: column;
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 8px 22px rgba(23, 32, 36, 0.04);
+      transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+      box-shadow: var(--shadow);
+    }
+
+    .card-tag {
+      align-self: flex-start;
+      max-width: 100%;
+      margin-bottom: 12px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      background: var(--soft-blue);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.3;
+    }
+
+    .card[data-category="print"] .card-tag {
+      background: var(--soft-rust);
+      color: var(--accent-2);
+    }
+
+    .card[data-category="summary"] .card-tag {
+      background: var(--soft-green);
+      color: var(--accent-3);
+    }
+
+    .card-title {
+      margin: 0 0 10px;
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    .card-desc {
+      flex: 1;
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .card-meta span {
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .card-btn {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      background: var(--accent-soft);
-      color: var(--accent);
-      border: 1px solid var(--accent);
-      padding: 8px 16px;
+      justify-content: center;
+      width: 100%;
+      padding: 0 14px;
+      background: var(--fg);
+      color: var(--bg);
+      text-decoration: none;
+    }
+
+    .card[data-category="print"] .card-btn {
+      background: var(--accent-2);
+      color: #fff;
+    }
+
+    .card[data-category="summary"] .card-btn {
+      background: var(--accent-3);
+      color: #fff;
+    }
+
+    .empty-state {
+      display: none;
+      margin-top: 28px;
+      padding: 28px;
+      border: 1px dashed var(--border);
       border-radius: 8px;
-      font-weight: 700;
-      font-size: 13px;
-      cursor: pointer;
-      margin-top: 12px;
-      transition: all 150ms ease;
+      color: var(--muted);
+      text-align: center;
+      background: color-mix(in srgb, var(--surface) 55%, transparent);
     }
-    .sync-all-btn:hover {
-      background: var(--accent);
-      color: white;
+
+    .empty-state.active {
+      display: block;
     }
-    
-    /* Sync Modal Styles */
+
     .modal-overlay {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(4px);
+      inset: 0;
+      z-index: 1000;
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.58);
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.3s ease;
+      transition: opacity 200ms ease;
     }
+
     .modal-overlay.active {
       opacity: 1;
       pointer-events: auto;
     }
+
     .modal-content {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      width: 90%;
-      max-width: 400px;
+      width: min(420px, 100%);
       padding: 24px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      transform: translateY(20px);
-      transition: transform 0.3s ease;
-      box-sizing: border-box;
-    }
-    .modal-overlay.active .modal-content {
-      transform: translateY(0);
-    }
-    .modal-content h3 {
-      margin: 0 0 12px;
-      font-size: 20px;
-      color: var(--fg);
-    }
-    .modal-desc {
-      font-size: 14px;
-      color: var(--muted);
-      margin: 0 0 20px;
-      line-height: 1.5;
-    }
-    .qrcode-container {
-      background: white;
-      padding: 16px;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      margin-bottom: 20px;
+      background: var(--surface);
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .modal-content h3 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .modal-desc {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .qrcode-container {
       display: flex;
       justify-content: center;
       align-items: center;
+      width: fit-content;
+      margin: 0 auto 18px;
+      padding: 14px;
+      border-radius: 8px;
+      background: #fff;
     }
-    .qrcode-container img {
-      display: block;
-    }
+
     .manual-link-container {
-      width: 100%;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       text-align: left;
     }
+
     .manual-link-container span {
-      font-size: 13px;
-      color: var(--fg);
       display: block;
       margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
     }
+
     .manual-link-container input {
       width: 100%;
-      padding: 8px 12px;
-      background: var(--bg);
+      min-height: 38px;
+      padding: 0 10px;
       border: 1px solid var(--border);
       border-radius: 6px;
+      background: var(--bg);
       color: var(--fg);
+      font: inherit;
       font-size: 12px;
-      box-sizing: border-box;
     }
-    .copy-link-btn {
-      margin-top: 8px;
-      width: 100%;
-      padding: 8px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: opacity 0.2s ease;
-    }
-    .copy-link-btn:hover {
-      opacity: 0.9;
-    }
+
+    .copy-link-btn,
     .close-modal-btn {
       width: 100%;
-      padding: 8px;
-      background: transparent;
       border: 1px solid var(--border);
-      color: var(--fg);
-      border-radius: 6px;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background 0.2s ease;
+      padding: 0 12px;
+    }
+
+    .copy-link-btn {
       margin-top: 8px;
+      background: var(--accent);
+      color: #fff;
     }
-    .close-modal-btn:hover {
-      background: var(--bg);
+
+    .close-modal-btn {
+      margin-top: 8px;
+      background: transparent;
+      color: var(--fg);
     }
-    
-    /* Toast Messages */
+
     .toast {
       position: fixed;
-      bottom: 24px;
+      bottom: 22px;
       left: 50%;
-      transform: translateX(-50%) translateY(100px);
+      z-index: 1100;
+      max-width: min(520px, calc(100% - 32px));
+      transform: translateX(-50%) translateY(80px);
+      padding: 12px 18px;
+      border-radius: 8px;
       background: var(--fg);
       color: var(--bg);
-      padding: 12px 24px;
-      border-radius: 99px;
-      font-weight: 700;
-      font-size: 14px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+      font-weight: 800;
       opacity: 0;
-      z-index: 1000;
-      transition: transform 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 300ms ease;
+      transition: transform 220ms ease, opacity 220ms ease;
     }
+
     .toast.show {
       transform: translateX(-50%) translateY(0);
       opacity: 1;
     }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(100% - 24px, 1180px);
+        padding-top: 24px;
+      }
+
+      .topbar,
+      .category-heading {
+        display: block;
+      }
+
+      .sync-all-btn {
+        width: 100%;
+        margin-top: 18px;
+      }
+
+      .toolbar {
+        position: static;
+        grid-template-columns: 1fr;
+      }
+
+      .category-nav {
+        justify-content: stretch;
+      }
+
+      .nav-btn {
+        flex: 1 1 44%;
+      }
+
+      .summary-row {
+        grid-template-columns: 1fr;
+      }
+
+      .category-count {
+        display: inline-block;
+        margin-top: 8px;
+      }
+    }
   </style>
 </head>
 <body>
-  <header id="portal-header">
-    <h1 id="portal-title">學術能力模擬檢測入口</h1>
-    <div class="subtitle" id="portal-subtitle">歡迎來到模擬考試線上平台。</div>
-    <button class="sync-all-btn" id="syncAllBtn" type="button">📲 跨裝置一鍵同步</button>
-  </header>
+  <main class="shell">
+    <div class="topbar">
+      <header>
+        <p class="eyebrow">Exam Portal</p>
+        <h1 id="portal-title">線上考場入口</h1>
+        <p class="subtitle" id="portal-subtitle">依用途整理試卷列印、試題彙整與分年試卷，快速找到要使用的測驗或工具。</p>
+      </header>
+      <button class="sync-all-btn" id="syncAllBtn" type="button">同步作答進度</button>
+    </div>
 
-  <div class="grid" id="exam-grid">
-    <!-- populated by renderPortal() -->
-  </div>
+    <section class="toolbar" aria-label="入口篩選">
+      <input class="search" id="portalSearch" type="search" placeholder="搜尋年度、職種、級別或關鍵字" autocomplete="off" />
+      <nav class="category-nav" id="categoryNav" aria-label="分類快速切換"></nav>
+    </section>
 
-  <!-- portal-data.js is auto-generated by: cd 114-4-chinese && npm run build -->
+    <section class="summary-row" id="summaryRow" aria-label="分類統計"></section>
+    <div id="categoryRoot"></div>
+    <div class="empty-state" id="emptyState">找不到符合條件的項目，請換個關鍵字或切回全部分類。</div>
+  </main>
+
   <script src="portal-data.js"></script>
   <script>
-    function renderPortal() {
-      // Render header from PORTAL data if available
-      if (window.PORTAL && window.PORTAL.meta) {
-        const m = window.PORTAL.meta;
-        if (m.title)    document.getElementById('portal-title').textContent    = m.title;
-        if (m.subtitle) document.getElementById('portal-subtitle').textContent = m.subtitle;
+    const CATEGORY_DEFS = [
+      {
+        key: 'print',
+        label: '試卷列印區',
+        desc: '整理可列印與另存 PDF 的版面工具。',
+        match: exam => hasAny(exam, ['列印', 'PDF', 'print'])
+      },
+      {
+        key: 'summary',
+        label: '試題彙整區',
+        desc: '跨年度去重題庫、整合題庫與集中練習入口。',
+        match: exam => hasAny(exam, ['彙整', '去重', '題庫', '參考資料', 'summary'])
+      },
+      {
+        key: 'yearly',
+        label: '分年試卷',
+        desc: '依學年度與職種整理的正式、模擬與競賽學科試卷。',
+        match: () => true
       }
+    ];
 
-      const grid = document.getElementById('exam-grid');
-      grid.innerHTML = '';
+    const YEARLY_GROUP_DEFS = [
+      {
+        key: 'chinese-cooking',
+        label: '技藝競賽學科-中餐烹調',
+        match: exam => hasAny(exam, ['技藝競賽學科-中餐烹調'])
+      },
+      {
+        key: 'baking',
+        label: '技藝競賽學科-烘焙職種',
+        match: exam => hasAny(exam, ['技藝競賽學科-烘焙職種'])
+      },
+      {
+        key: 'other',
+        label: '其他分年試卷',
+        match: () => true
+      }
+    ];
 
-      const exams = window.PORTAL && window.PORTAL.exams ? window.PORTAL.exams : [];
+    let activeCategory = 'all';
 
-      // Render exam cards
-      exams.forEach(exam => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <div class="card-tag">${exam.tag || ''}</div>
-          <h2 class="card-title">${exam.title || ''}</h2>
-          <p class="card-desc">${exam.desc || ''}</p>
-          <div class="card-meta">
-            ${exam.time      ? `<span>⏱️ ${exam.time}</span>` : ''}
-            ${exam.questions ? `<span>📝 ${exam.questions}</span>` : ''}
-            ${exam.score     ? `<span>🎯 ${exam.score}</span>` : ''}
-          </div>
-          <a href="${exam.href || '#'}" class="card-btn">${exam.btnText || '進入考場'}</a>
-        `;
-        grid.appendChild(card);
-      });
-
-      // Always append placeholder card for future exams
-      const placeholder = document.createElement('div');
-      placeholder.className = 'card placeholder';
-      placeholder.innerHTML = `
-        <div class="placeholder-icon">📥</div>
-        <div class="placeholder-title">未來新增試卷</div>
-        <p style="font-size: 13px; color: var(--muted); margin-top: 8px; margin-bottom: 0;">在此目錄下新增其他學科與試卷資料夾，即可在此面板中進行串接與擴展。</p>
-      `;
-      grid.appendChild(placeholder);
+    function textOf(exam) {
+      return [exam.id, exam.tag, exam.title, exam.desc, exam.href, exam.btnText].filter(Boolean).join(' ');
     }
 
-    function showToast(msg) {
+    function hasAny(exam, words) {
+      const source = textOf(exam).toLowerCase();
+      return words.some(word => source.includes(String(word).toLowerCase()));
+    }
+
+    function categoryOf(exam) {
+      return CATEGORY_DEFS.find(def => def.match(exam)).key;
+    }
+
+    function groupedExams() {
+      const groups = Object.fromEntries(CATEGORY_DEFS.map(def => [def.key, []]));
+      const exams = window.PORTAL && Array.isArray(window.PORTAL.exams) ? window.PORTAL.exams : [];
+      exams.forEach(exam => groups[categoryOf(exam)].push(exam));
+      return groups;
+    }
+
+    function renderPortal() {
+      if (window.PORTAL && window.PORTAL.meta) {
+        const meta = window.PORTAL.meta;
+        if (meta.title) document.getElementById('portal-title').textContent = meta.title;
+        if (meta.subtitle) document.getElementById('portal-subtitle').textContent = meta.subtitle;
+      }
+
+      const groups = groupedExams();
+      renderNav(groups);
+      renderSummary(groups);
+      renderCategories(groups);
+      applyFilters();
+    }
+
+    function renderNav(groups) {
+      const nav = document.getElementById('categoryNav');
+      const total = Object.values(groups).reduce((sum, items) => sum + items.length, 0);
+      nav.innerHTML = navButton('all', `全部 ${total}`) + CATEGORY_DEFS.map(def => navButton(def.key, `${def.label} ${groups[def.key].length}`)).join('');
+      nav.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeCategory = btn.dataset.category;
+          applyFilters();
+          if (activeCategory !== 'all') {
+            document.getElementById(`category-${activeCategory}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+      });
+    }
+
+    function navButton(key, label) {
+      return `<button class="nav-btn" type="button" data-category="${key}">${label}</button>`;
+    }
+
+    function renderSummary(groups) {
+      const row = document.getElementById('summaryRow');
+      row.innerHTML = CATEGORY_DEFS.map(def => `
+        <button class="summary-tile" type="button" data-category="${def.key}">
+          <span><strong>${def.label}</strong><span>${def.desc}</span></span>
+          <span class="summary-count">${groups[def.key].length}</span>
+        </button>
+      `).join('');
+      row.querySelectorAll('.summary-tile').forEach(tile => {
+        tile.addEventListener('click', () => {
+          activeCategory = tile.dataset.category;
+          applyFilters();
+          document.getElementById(`category-${activeCategory}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    }
+
+    function renderCategories(groups) {
+      const root = document.getElementById('categoryRoot');
+      root.innerHTML = CATEGORY_DEFS.map(def => `
+        <section class="category" id="category-${def.key}" data-category="${def.key}">
+          <div class="category-heading">
+            <div>
+              <h2>${def.label}</h2>
+              <p>${def.desc}</p>
+            </div>
+            <span class="category-count" data-count-for="${def.key}">${groups[def.key].length} 個項目</span>
+          </div>
+          ${def.key === 'yearly' ? renderYearlyGroups(groups[def.key]) : renderGrid(groups[def.key], def.key)}
+        </section>
+      `).join('');
+    }
+
+    function renderGrid(exams, category) {
+      return `
+        <div class="grid">
+          ${exams.map(exam => renderCard(exam, category)).join('')}
+        </div>
+      `;
+    }
+
+    function yearlyGroupOf(exam) {
+      return YEARLY_GROUP_DEFS.find(def => def.match(exam)).key;
+    }
+
+    function renderYearlyGroups(exams) {
+      const groups = Object.fromEntries(YEARLY_GROUP_DEFS.map(def => [def.key, []]));
+      exams.forEach(exam => groups[yearlyGroupOf(exam)].push(exam));
+      return YEARLY_GROUP_DEFS
+        .filter(def => groups[def.key].length > 0)
+        .map(def => `
+          <section class="subgroup" data-yearly-group="${def.key}">
+            <div class="subgroup-heading">
+              <span>${def.label}</span>
+              <span class="subgroup-count" data-subcount-for="${def.key}">${groups[def.key].length} 個項目</span>
+            </div>
+            <div class="grid">
+              ${groups[def.key].map(exam => renderCard(exam, 'yearly')).join('')}
+            </div>
+          </section>
+        `).join('');
+    }
+
+    function renderCard(exam, category) {
+      const searchable = textOf(exam).replace(/"/g, '&quot;');
+      return `
+        <article class="card" data-category="${category}" data-search="${searchable}">
+          <div class="card-tag">${exam.tag || CATEGORY_DEFS.find(def => def.key === category).label}</div>
+          <h3 class="card-title">${exam.title || ''}</h3>
+          <p class="card-desc">${exam.desc || ''}</p>
+          <div class="card-meta">
+            ${exam.time ? `<span>${exam.time}</span>` : ''}
+            ${exam.questions ? `<span>${exam.questions}</span>` : ''}
+            ${exam.score ? `<span>${exam.score}</span>` : ''}
+          </div>
+          <a href="${exam.href || '#'}" class="card-btn">${exam.btnText || '進入'}</a>
+        </article>
+      `;
+    }
+
+    function applyFilters() {
+      const query = document.getElementById('portalSearch').value.trim().toLowerCase();
+      let visibleTotal = 0;
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.category === activeCategory);
+      });
+
+      CATEGORY_DEFS.forEach(def => {
+        const section = document.getElementById(`category-${def.key}`);
+        let visibleInSection = 0;
+        section.querySelectorAll('.card').forEach(card => {
+          const categoryMatched = activeCategory === 'all' || activeCategory === def.key;
+          const queryMatched = !query || card.dataset.search.toLowerCase().includes(query);
+          const visible = categoryMatched && queryMatched;
+          card.classList.toggle('hidden', !visible);
+          if (visible) visibleInSection++;
+        });
+
+        if (def.key === 'yearly') {
+          section.querySelectorAll('.subgroup').forEach(group => {
+            const visibleInGroup = group.querySelectorAll('.card:not(.hidden)').length;
+            group.classList.toggle('hidden', visibleInGroup === 0);
+            const count = group.querySelector('[data-subcount-for]');
+            if (count) count.textContent = `${visibleInGroup} 個項目`;
+          });
+        }
+
+        section.classList.toggle('hidden', visibleInSection === 0);
+        document.querySelector(`[data-count-for="${def.key}"]`).textContent = `${visibleInSection} 個項目`;
+        visibleTotal += visibleInSection;
+      });
+
+      document.getElementById('emptyState').classList.toggle('active', visibleTotal === 0);
+    }
+
+    function showToast(message) {
       let toast = document.getElementById('toast');
       if (!toast) {
         toast = document.createElement('div');
@@ -391,65 +787,49 @@
         toast.className = 'toast';
         document.body.appendChild(toast);
       }
-      toast.textContent = msg;
+      toast.textContent = message;
       toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 3000);
+      setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
-    // Global Sync Mechanism
     function checkSyncAll() {
       const hash = window.location.hash;
-      if (hash && hash.startsWith('#syncAll=')) {
-        const b64Data = hash.substring(9);
-        // Clear hash immediately
-        window.history.replaceState("", document.title, window.location.pathname + window.location.search);
-        try {
-          const jsonStr = decodeURIComponent(escape(atob(b64Data)));
-          const payload = JSON.parse(jsonStr);
-          
-          let count = 0;
-          for (const [key, data] of Object.entries(payload)) {
-            const localState = {
-              tasks: {},
-              quiz: data.q || {},
-              textAnswers: {},
-              graded: data.g === 1,
-              gradedQuestions: {},
-              lastSection: ''
-            };
-            
-            if (data.q) {
-              Object.keys(data.q).forEach(qid => {
-                localState.gradedQuestions[qid] = true;
-              });
-            }
-            
-            localStorage.setItem(key, JSON.stringify(localState));
-            if (data.t !== null) {
-              localStorage.setItem(`${key}-time-remaining`, data.t);
-            }
-            count++;
-          }
-          
-          if (count > 0) {
-            setTimeout(() => {
-              showToast(`🟢 已成功同步 ${count} 科的練習進度！`);
-            }, 300);
-          }
-        } catch (e) {
-          console.error("Restore global progress failed:", e);
-          showToast('🔴 同步失敗，進度資料格式錯誤。');
+      if (!hash || !hash.startsWith('#syncAll=')) return;
+
+      const encodedData = hash.substring(9);
+      window.history.replaceState('', document.title, window.location.pathname + window.location.search);
+      try {
+        const payload = JSON.parse(decodeURIComponent(escape(atob(encodedData))));
+        let count = 0;
+        for (const [key, data] of Object.entries(payload)) {
+          const localState = {
+            tasks: {},
+            quiz: data.q || {},
+            textAnswers: {},
+            graded: data.g === 1,
+            gradedQuestions: {},
+            lastSection: ''
+          };
+
+          Object.keys(localState.quiz).forEach(qid => {
+            localState.gradedQuestions[qid] = true;
+          });
+
+          localStorage.setItem(key, JSON.stringify(localState));
+          if (data.t !== null) localStorage.setItem(`${key}-time-remaining`, data.t);
+          count++;
         }
+
+        if (count > 0) showToast(`已同步 ${count} 份測驗進度`);
+      } catch (error) {
+        console.error('Restore global progress failed:', error);
+        showToast('同步資料解析失敗，請重新產生同步連結');
       }
     }
 
     function initGlobalSync() {
-      const btn = document.getElementById('syncAllBtn');
-      if (btn) {
-        btn.addEventListener('click', showGlobalSyncModal);
-      }
+      document.getElementById('syncAllBtn').addEventListener('click', showGlobalSyncModal);
+      document.getElementById('portalSearch').addEventListener('input', applyFilters);
       checkSyncAll();
     }
 
@@ -457,24 +837,24 @@
       const payload = {};
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key.includes('progress') && !key.endsWith('-time-remaining')) {
-          try {
-            const stateVal = localStorage.getItem(key);
-            const state = JSON.parse(stateVal);
-            const timer = localStorage.getItem(`${key}-time-remaining`);
-            if (state && state.quiz && Object.keys(state.quiz).length > 0) {
-              payload[key] = {
-                q: state.quiz,
-                t: timer ? parseInt(timer, 10) : null,
-                g: state.graded ? 1 : 0
-              };
-            }
-          } catch(e) {}
+        if (!key.includes('progress') || key.endsWith('-time-remaining')) continue;
+        try {
+          const state = JSON.parse(localStorage.getItem(key));
+          const timer = localStorage.getItem(`${key}-time-remaining`);
+          if (state && state.quiz && Object.keys(state.quiz).length > 0) {
+            payload[key] = {
+              q: state.quiz,
+              t: timer ? parseInt(timer, 10) : null,
+              g: state.graded ? 1 : 0
+            };
+          }
+        } catch (error) {
+          console.warn('Skip invalid progress state:', key, error);
         }
       }
 
       if (Object.keys(payload).length === 0) {
-        showToast('⚠️ 目前本機尚無任何考科的作答紀錄可供同步！');
+        showToast('目前沒有可同步的作答進度');
         return;
       }
 
@@ -489,8 +869,8 @@
     }
 
     function generateGlobalSyncQR(payload) {
-      const b64Data = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-      const syncUrl = `${window.location.origin}${window.location.pathname}#syncAll=${b64Data}`;
+      const encodedData = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const syncUrl = `${window.location.origin}${window.location.pathname}#syncAll=${encodedData}`;
 
       let modal = document.getElementById('syncModal');
       if (!modal) {
@@ -499,25 +879,22 @@
         modal.className = 'modal-overlay';
         modal.innerHTML = `
           <div class="modal-content">
-            <h3>全站進度同步</h3>
-            <p class="modal-desc">請使用手機相機或 LINE 掃描下方二維碼，即可一次性將您在電腦端所有考科的作答進度與時間同步至手機。</p>
+            <h3>同步作答進度</h3>
+            <p class="modal-desc">用另一台裝置開啟此 QR Code 或連結，即可匯入目前瀏覽器中的測驗作答進度。</p>
             <div id="qrcodeCanvas" class="qrcode-container"></div>
             <div class="manual-link-container">
-              <span>手動複製連結：</span>
+              <span>同步連結</span>
               <input id="syncUrlInput" type="text" readonly onclick="this.select()">
-              <button class="copy-link-btn" id="copyLinkBtn">複製連結</button>
+              <button class="copy-link-btn" id="copyLinkBtn" type="button">複製連結</button>
             </div>
-            <button class="close-modal-btn" id="closeModalBtn">關閉</button>
+            <button class="close-modal-btn" id="closeModalBtn" type="button">關閉</button>
           </div>
         `;
         document.body.appendChild(modal);
-        
         document.getElementById('closeModalBtn').addEventListener('click', hideGlobalSyncModal);
-        document.getElementById('copyLinkBtn').addEventListener('click', () => {
-          const input = document.getElementById('syncUrlInput');
-          input.select();
-          document.execCommand('copy');
-          showToast('📋 連結已複製到剪貼簿！');
+        document.getElementById('copyLinkBtn').addEventListener('click', copySyncLink);
+        modal.addEventListener('click', event => {
+          if (event.target === modal) hideGlobalSyncModal();
         });
       }
 
@@ -529,17 +906,23 @@
         text: syncUrl,
         width: 200,
         height: 200,
-        colorDark : "#000000",
-        colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.M
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
       });
 
       modal.classList.add('active');
     }
 
+    function copySyncLink() {
+      const input = document.getElementById('syncUrlInput');
+      input.select();
+      document.execCommand('copy');
+      showToast('同步連結已複製');
+    }
+
     function hideGlobalSyncModal() {
-      const modal = document.getElementById('syncModal');
-      if (modal) modal.classList.remove('active');
+      document.getElementById('syncModal')?.classList.remove('active');
     }
 
     renderPortal();
