@@ -13,6 +13,7 @@ const els = {
   questionGapValue: document.getElementById("questionGapValue"),
   showSource: document.getElementById("showSource"),
   printBorders: document.getElementById("printBorders"),
+  showAnswers: document.getElementById("showAnswers"),
   sourceMode: document.getElementById("sourceMode"),
   optionLayout: document.getElementById("optionLayout"),
   optionPosition: document.getElementById("optionPosition"),
@@ -84,6 +85,7 @@ function applySettings() {
   const optionPosition = els.optionPosition.value;
   const sourceVisible = els.showSource.checked;
   const bordersVisible = els.printBorders.checked;
+  const answersVisible = els.showAnswers.checked;
   const printTitle = els.printTitleInput.value.trim();
 
   document.documentElement.style.setProperty("--exam-font-size", `${fontSize}pt`);
@@ -101,6 +103,7 @@ function applySettings() {
     sourceMode === "two-column-inline" ? "source-inline" : "source-block",
     sourceVisible ? "source-visible" : "source-hidden",
     bordersVisible ? "print-borders" : "no-borders",
+    answersVisible ? "answers-visible" : "answers-hidden",
     optionLayout === "vertical" ? "options-vertical" : "options-horizontal",
     optionPosition === "same-line" ? "options-same-line" : "options-next-line"
   ].join(" ");
@@ -118,7 +121,8 @@ function applySettings() {
     labels.optionLayout[optionLayout],
     labels.optionPosition[optionPosition],
     sourceVisible ? "顯示出處" : "隱藏出處",
-    bordersVisible ? "列印框線" : "無框線"
+    bordersVisible ? "列印框線" : "無框線",
+    answersVisible ? "顯示答案" : "隱藏答案"
   ].join(" · ");
 }
 
@@ -130,6 +134,7 @@ function bindControls() {
     els.questionGap,
     els.showSource,
     els.printBorders,
+    els.showAnswers,
     els.sourceMode,
     els.optionLayout,
     els.optionPosition

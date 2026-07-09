@@ -306,6 +306,10 @@ input[type="text"] {
   font-size: 0.95em;
 }
 
+.exam-table.answers-hidden .answer-cell {
+  display: none;
+}
+
 .source-cell {
   width: 170px;
   text-align: center;
