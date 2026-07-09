@@ -414,6 +414,11 @@ input[type="text"] {
   margin-left: 0.65em;
 }
 
+.exam-table.source-three-column.options-same-line .body-source,
+.exam-table.source-three-column.options-same-line .inline-source {
+  display: none;
+}
+
 .exam-table.options-same-line .question-line.with-gap {
   margin-bottom: 0;
 }
