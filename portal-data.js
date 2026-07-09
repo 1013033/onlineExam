@@ -76,6 +76,72 @@ window.PORTAL = {
       "btnText": "進入線上考場"
     },
     {
+      "id": "tool-115-chinese-cooking-b-print",
+      "tag": "列印工具",
+      "title": "中餐葷食乙級考卷列印動態調整",
+      "desc": "將中餐葷食乙級題庫轉成可列印版面，支援自訂標題、字體大小、行距、題選間距、出處位置、選項排列與瀏覽器原生另存 PDF。",
+      "time": "列印 / PDF",
+      "questions": "共 676 題",
+      "score": "可自訂版面",
+      "href": "115-chinese-cooking-b-print/",
+      "btnText": "開啟列印工具"
+    },
+    {
+      "id": "tool-115-chinese-cooking-c-print",
+      "tag": "列印工具",
+      "title": "中餐葷食丙級考卷列印動態調整",
+      "desc": "將中餐葷食丙級題庫轉成可列印版面，支援自訂標題、字體大小、行距、題選間距、出處位置、選項排列與瀏覽器原生另存 PDF。",
+      "time": "列印 / PDF",
+      "questions": "共 640 題",
+      "score": "可自訂版面",
+      "href": "115-chinese-cooking-c-print/",
+      "btnText": "開啟列印工具"
+    },
+    {
+      "id": "tool-115-western-cooking-b-print",
+      "tag": "列印工具",
+      "title": "西餐烹調乙級考卷列印動態調整",
+      "desc": "將西餐烹調乙級題庫轉成可列印版面，支援自訂標題、字體大小、行距、題選間距、出處位置、選項排列與瀏覽器原生另存 PDF。",
+      "time": "列印 / PDF",
+      "questions": "共 548 題",
+      "score": "可自訂版面",
+      "href": "115-western-cooking-b-print/",
+      "btnText": "開啟列印工具"
+    },
+    {
+      "id": "tool-115-western-cooking-c-print",
+      "tag": "列印工具",
+      "title": "西餐烹調丙級考卷列印動態調整",
+      "desc": "將西餐烹調丙級題庫轉成可列印版面，支援自訂標題、字體大小、行距、題選間距、出處位置、選項排列與瀏覽器原生另存 PDF。",
+      "time": "列印 / PDF",
+      "questions": "共 519 題",
+      "score": "可自訂版面",
+      "href": "115-western-cooking-c-print/",
+      "btnText": "開啟列印工具"
+    },
+    {
+      "id": "tool-115-baking-b-print",
+      "tag": "列印工具",
+      "title": "烘焙乙級考卷列印動態調整",
+      "desc": "將烘焙乙級題庫轉成可列印版面，支援自訂標題、字體大小、行距、題選間距、出處位置、選項排列與瀏覽器原生另存 PDF。",
+      "time": "列印 / PDF",
+      "questions": "共 731 題",
+      "score": "可自訂版面",
+      "href": "115-baking-b-print/",
+      "btnText": "開啟列印工具"
+    },
+    {
+      "id": "tool-115-baking-c-print",
+      "tag": "列印工具",
+      "title": "烘焙丙級考卷列印動態調整",
+      "desc": "將烘焙丙級題庫轉成可列印版面，支援自訂標題、字體大小、行距、題選間距、出處位置、選項排列與瀏覽器原生另存 PDF。",
+      "time": "列印 / PDF",
+      "questions": "共 513 題",
+      "score": "可自訂版面",
+      "href": "115-baking-c-print/",
+      "btnText": "開啟列印工具"
+    },
+    {
       "id": "exam-100-114-chinese-cooking-summary",
       "tag": "技藝競賽學科-中餐烹調",
       "title": "技藝競賽學科-中餐(100年-114年)彙整",

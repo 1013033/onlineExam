@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>西餐烹調乙級題庫考卷列印動態調整</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-toolbar" aria-label="列印設定">
+    <div class="brand">
+      <p class="eyebrow">西餐烹調乙級題庫</p>
+      <h1>考卷列印動態調整</h1>
+    </div>
+
+    <section class="controls" aria-label="排版控制">
+      <div class="control-group title-group">
+        <p class="group-label">文件</p>
+        <label class="text-control">
+          <span>列印標題</span>
+          <input id="printTitleInput" type="text" value="西餐烹調乙級題庫考卷" placeholder="輸入列印 PDF 標題">
+        </label>
+      </div>
+
+      <div class="control-group">
+        <p class="group-label">排版</p>
+        <label class="control">
+          <span>字體大小 <output id="fontSizeValue">13pt</output></span>
+          <input id="fontSize" type="range" min="9" max="20" step="0.5" value="13">
+        </label>
+        <label class="control">
+          <span>行距 <output id="lineHeightValue">1.55</output></span>
+          <input id="lineHeight" type="range" min="1.1" max="2.2" step="0.05" value="1.55">
+        </label>
+        <label class="control">
+          <span>題選間距 <output id="questionGapValue">24px</output></span>
+          <input id="questionGap" type="range" min="0" max="56" step="2" value="24">
+        </label>
+      </div>
+
+      <div class="control-group">
+        <p class="group-label">內容</p>
+        <label class="toggle">
+          <input id="showSource" type="checkbox" checked>
+          <span>顯示出處</span>
+        </label>
+        <label class="toggle">
+          <input id="printBorders" type="checkbox" checked>
+          <span>列印框線</span>
+        </label>
+        <label class="toggle">
+          <input id="showAnswers" type="checkbox" checked>
+          <span>顯示答案</span>
+        </label>
+        <label class="select-control">
+          <span>出處位置</span>
+          <select id="sourceMode">
+            <option value="three-column">三欄右側</option>
+            <option value="two-column-block">兩欄題內下方</option>
+            <option value="two-column-inline">兩欄題目同行</option>
+          </select>
+        </label>
+        <label class="select-control">
+          <span>選項方向</span>
+          <select id="optionLayout">
+            <option value="horizontal">橫向呈現</option>
+            <option value="vertical">垂直呈現</option>
+          </select>
+        </label>
+        <label class="select-control">
+          <span>選項位置</span>
+          <select id="optionPosition">
+            <option value="next-line">題目下一行</option>
+            <option value="same-line">跟在題目後面</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="control-group print-group">
+        <p class="group-label">輸出</p>
+        <button id="printBtn" class="print-button" type="button" title="使用瀏覽器原生列印">
+          <span aria-hidden="true">⎙</span>
+          列印 / 另存 PDF
+        </button>
+      </div>
+    </section>
+  </header>
+
+  <main class="page-shell">
+    <h2 id="printTitle" class="print-title">西餐烹調乙級題庫考卷</h2>
+
+    <div class="print-meta">
+      <span id="questionCount">790 題</span>
+      <span id="modeLabel">三欄右側 · 橫向選項 · 題目下一行</span>
+    </div>
+
+    <table id="examTable" class="exam-table" aria-label="西餐烹調乙級考卷題目表">
+      <tbody id="examBody"></tbody>
+    </table>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
