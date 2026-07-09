@@ -967,10 +967,10 @@ explanation: |
 - (D) 宮保雞丁多用雞腿肉製成
 
 ```yaml
-answer: A
+answer: [A, B, C, D]
 unit: day1.u-3
 explanation: |
-  【答案】(送分)
+  Answer: all options accepted
   【出處】中餐烹調與肉類前處理學理分析
   【AI 分析】
   本題原始題本標示為送分題，因此系統接受 A、B、C、D 任一選項。題幹問肉類烹調敘述何者錯誤，但四個選項中多數屬合理烹調觀念或有條件成立，導致不適合判定單一錯誤答案。
@@ -1121,10 +1121,10 @@ explanation: |
 - (D) 後部腰肉。
 
 ```yaml
-answer: A
+answer: [A, B, C, D]
 unit: day1.u-3
 explanation: |
-  【答案】(送分)
+  Answer: all options accepted
   【出處】牛肉屠體部位與英文名稱規格對照
   【AI 分析】
   本題原始答案標示為送分，因題幹把「沙朗牛排」與英文 T-bone steak 併列，中文市場名稱與英文分切部位容易不一致，導致無法穩定判定單一答案。
