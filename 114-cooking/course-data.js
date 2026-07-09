@@ -352,7 +352,7 @@ window.COURSE = {
       "id": "q24",
       "type": "single",
       "sourceUnit": "day1.u-2",
-      "q": "何者食材又稱為腹( )魚？",
+      "q": "何者食材又稱為腹(鰒)魚？",
       "options": [
         "(A) 鮑魚",
         "(B) 魷魚",

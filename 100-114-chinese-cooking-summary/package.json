@@ -1,0 +1,9 @@
+{
+  "name": "100-114-chinese-cooking-summary-exam",
+  "version": "1.0.0",
+  "description": "技藝競賽學科-中餐(100年-114年)彙整線上考場",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "serve": "npx serve ."
+  }
+}
