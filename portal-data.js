@@ -98,6 +98,17 @@ window.PORTAL = {
       "btnText": "開啟列印工具"
     },
     {
+      "id": "tool-100-114-baking-print",
+      "tag": "列印工具",
+      "title": "烘焙(100年-114年)考卷列印動態調整",
+      "desc": "將 100 年至 114 年烘焙職種去重題庫轉成可列印版面，支援自訂標題、字體大小、行距、題選間距、出處位置、選項排列與瀏覽器原生另存 PDF。",
+      "time": "列印 / PDF",
+      "questions": "共 847 題",
+      "score": "可自訂版面",
+      "href": "100-114-baking-print/",
+      "btnText": "開啟列印工具"
+    },
+    {
       "id": "exam-100-chinese-cooking",
       "tag": "技藝競賽學科-中餐烹調",
       "title": "100 學年度中餐烹飪職種學科正式試卷",
