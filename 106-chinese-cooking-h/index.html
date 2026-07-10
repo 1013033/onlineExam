@@ -71,21 +71,50 @@
   const STORE_KEY = (window.COURSE && window.COURSE.meta && window.COURSE.meta.storeKey)
     ? window.COURSE.meta.storeKey
     : '106-chinese-cooking-h-progress-v1';
+  const WRONG_BOOK_KEY = `${STORE_KEY}-wrong-book-v1`;
 
   function compressState() {
-    const quizItems = window.COURSE.quiz || [];
-    const answers = quizItems.map(item => state.quiz[item.id] !== undefined ? state.quiz[item.id] : '_').join('');
     const timeVal = localStorage.getItem(`${STORE_KEY}-time-remaining`) || (window.COURSE && window.COURSE.meta && window.COURSE.meta.timerSeconds) || 3600;
-    const gradedVal = state.graded ? 1 : 0;
-    return `${answers}:${timeVal}:${gradedVal}`;
+    const payload = {
+      version: 2,
+      state: {
+        tasks: state.tasks || {},
+        quiz: state.quiz || {},
+        textAnswers: state.textAnswers || {},
+        graded: !!state.graded,
+        gradedQuestions: state.gradedQuestions || {},
+        lastSection: state.lastSection || ''
+      },
+      timeRemaining: parseInt(timeVal, 10),
+      wrongBook: wrongBook || {}
+    };
+    return `v2:${encodeURIComponent(JSON.stringify(payload))}`;
   }
 
   function decompressState(str) {
     try {
-      const parts = decodeURIComponent(str).split(':');
+      const decoded = decodeURIComponent(str);
+      if (decoded.startsWith('v2:')) {
+        const payload = JSON.parse(decodeURIComponent(decoded.slice(3)));
+        const parsedTime = Number.isFinite(payload.timeRemaining) ? payload.timeRemaining : parseInt(payload.timeRemaining, 10);
+        return {
+          state: {
+            tasks: (payload.state && payload.state.tasks) || {},
+            quiz: (payload.state && payload.state.quiz) || {},
+            textAnswers: (payload.state && payload.state.textAnswers) || {},
+            graded: !!(payload.state && payload.state.graded),
+            gradedQuestions: (payload.state && payload.state.gradedQuestions) || {},
+            lastSection: (payload.state && payload.state.lastSection) || ''
+          },
+          timeRemaining: Number.isFinite(parsedTime) ? parsedTime : null,
+          wrongBook: payload.wrongBook || {}
+        };
+      }
+
+      const parts = decoded.split(':');
       if (parts.length < 3) return null;
       const [answersStr, timeStr, gradedStr] = parts;
-      
+
       const quizItems = window.COURSE.quiz || [];
       const quiz = {};
       for (let i = 0; i < quizItems.length; i++) {
@@ -94,7 +123,7 @@
           quiz[quizItems[i].id] = parseInt(char, 10);
         }
       }
-      
+
       const parsedState = {
         tasks: {},
         quiz: quiz,
@@ -103,7 +132,7 @@
         gradedQuestions: {},
         lastSection: ''
       };
-      
+
       // Auto check tasks based on answers
       quizItems.forEach(item => {
         if (quiz[item.id] !== undefined) {
@@ -112,10 +141,11 @@
           parsedState.gradedQuestions[item.id] = true;
         }
       });
-      
+
       return {
         state: parsedState,
-        timeRemaining: parseInt(timeStr, 10)
+        timeRemaining: parseInt(timeStr, 10),
+        wrongBook: {}
       };
     } catch (e) {
       return null;
@@ -136,6 +166,9 @@
             localStorage.setItem(STORE_KEY, JSON.stringify(decompressed.state));
             if (decompressed.timeRemaining !== null) {
               localStorage.setItem(`${STORE_KEY}-time-remaining`, decompressed.timeRemaining);
+            }
+            if (decompressed.wrongBook) {
+              localStorage.setItem(WRONG_BOOK_KEY, JSON.stringify(decompressed.wrongBook));
             }
             window.__syncLoaded = true;
             return decompressed.state;
@@ -163,12 +196,32 @@
     save(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); },
     reset() {
       localStorage.removeItem(STORE_KEY);
+      localStorage.removeItem(WRONG_BOOK_KEY);
       localStorage.removeItem(`${STORE_KEY}-time-remaining`);
       location.reload();
     }
   };
   let state = store.load();
   state.gradedQuestions = state.gradedQuestions || {};
+
+  const wrongBookStore = {
+    load() {
+      try {
+        return JSON.parse(localStorage.getItem(WRONG_BOOK_KEY)) || {};
+      } catch {
+        return {};
+      }
+    },
+    save(book) {
+      localStorage.setItem(WRONG_BOOK_KEY, JSON.stringify(book));
+    },
+    reset() {
+      localStorage.removeItem(WRONG_BOOK_KEY);
+    }
+  };
+  let wrongBook = wrongBookStore.load();
+  let wrongPracticeMode = false;
+  let wrongPracticeState = { quiz: {}, gradedQuestions: {} };
 
   /* ============================================================
    * Tiny DOM helper (no framework, no innerHTML for user content)
@@ -319,7 +372,7 @@
     const canvasMock = el('div', {
       style: 'background: var(--surface-2); border: 2px dashed var(--border-strong); padding: 40px; border-radius: var(--r-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;'
     });
-    
+
     let icon = '🍳';
     let desc = '106H 中餐烹飪學科測驗示意圖';
     if (name.includes('culture')) {
@@ -350,12 +403,12 @@
     const sum = el('summary', {});
     const titleWrap = el('div', { class: 'unit-title-group' });
     titleWrap.append(el('div', { class: 'unit-title' }, u.title));
-    
+
     const metaDiv = el('div', { class: 'unit-meta' });
     if (u.subtitle) metaDiv.append(el('span', {}, u.subtitle));
     metaDiv.append(el('span', {}, `建議用時: ${u.time}`));
     titleWrap.append(metaDiv);
-    
+
     sum.append(titleWrap);
     sum.append(el('span', { class: 'unit-progress-pill', id: `pill-${u.id}` }, '0 / 0'));
     det.append(sum);
@@ -395,7 +448,7 @@
     const d = window.COURSE[dayId];
     if (!d) return null;
     const root = el('section', { class: 'chapter', id: dayId, 'data-section-id': dayId });
-    
+
     const hero = el('div', { class: 'day-hero' });
     const meta = window.COURSE.meta.days.find(x => x.id === dayId);
     hero.append(el('div', { class: 'day-hero-numeral' }, `M${meta?.n || ''}`));
@@ -405,7 +458,7 @@
     if (d.learningGoal) heroMeta.append(el('div', { class: 'lead' }, d.learningGoal));
     hero.append(heroMeta);
     root.append(hero);
-    
+
     d.units?.forEach(u => root.append(renderUnit(d, u)));
     return root;
   }
@@ -418,7 +471,7 @@
     root.append(el('span', { class: 'eyebrow' }, window.COURSE.meta.program || ''));
     root.append(el('h1', {}, window.COURSE.meta.title));
     if (window.COURSE.meta.subtitle) root.append(el('div', { class: 'lead' }, window.COURSE.meta.subtitle));
-    
+
     // Info grid
     const grid = el('div', { class: 'kv' });
     grid.append(el('div', { class: 'kv-key' }, '主辦單位'));
@@ -469,18 +522,156 @@
     return root;
   }
 
+    function getWrongBookItems() {
+    const quizItems = window.COURSE.quiz || [];
+    return quizItems.filter(item => item.type !== 'text' && wrongBook[item.id]);
+  }
+
+  function getWrongBookCount() {
+    return Object.keys(wrongBook).length;
+  }
+
+  function renderWrongBookPanel(count) {
+    const panel = el('div', { class: 'wrong-book-panel', id: 'wrongBookPanel' });
+    const meta = el('div', { class: 'wrong-book-meta' });
+    meta.append(el('div', { class: 'wrong-book-title' }, wrongPracticeMode ? '錯題重練中' : '錯題庫'));
+    meta.append(el('div', { class: 'wrong-book-desc', id: 'wrongBookDesc' }, getWrongBookSummaryText(count)));
+
+    const actions = el('div', { class: 'wrong-book-actions' });
+    actions.append(el('button', {
+      class: 'wrong-book-btn',
+      id: 'wrongPracticeBtn',
+      type: 'button',
+      disabled: count === 0 && !wrongPracticeMode,
+      onclick: toggleWrongPracticeMode
+    }, wrongPracticeMode ? '返回完整試卷' : '錯題重練'));
+    actions.append(el('button', {
+      class: 'wrong-book-btn secondary',
+      id: 'clearWrongBookBtn',
+      type: 'button',
+      disabled: count === 0,
+      onclick: clearWrongBook
+    }, '清空錯題庫'));
+
+    panel.append(meta, actions);
+    return panel;
+  }
+
+  function getWrongBookSummaryText(count = getWrongBookCount()) {
+    if (count === 0) return '目前沒有錯題。答錯的選擇題會自動加入，重練連續答對 2 次後自動出庫。';
+    return `目前 ${count} 題待重練。每題連續答對 2 次會自動出庫；答錯會歸零重新累計。`;
+  }
+
+  function updateWrongBookSummary() {
+    const count = getWrongBookCount();
+    const desc = document.getElementById('wrongBookDesc');
+    if (desc) desc.textContent = getWrongBookSummaryText(count);
+    const practiceBtn = document.getElementById('wrongPracticeBtn');
+    if (practiceBtn) practiceBtn.disabled = count === 0 && !wrongPracticeMode;
+    const clearBtn = document.getElementById('clearWrongBookBtn');
+    if (clearBtn) clearBtn.disabled = count === 0;
+  }
+
+  function toggleWrongPracticeMode() {
+    wrongPracticeMode = !wrongPracticeMode;
+    wrongPracticeState = { quiz: {}, gradedQuestions: {} };
+    rerenderQuizSection();
+    showToast(wrongPracticeMode ? '已進入錯題重練。' : '已返回完整試卷。');
+  }
+
+  function clearWrongBook() {
+    wrongBook = {};
+    wrongBookStore.reset();
+    wrongPracticeMode = false;
+    wrongPracticeState = { quiz: {}, gradedQuestions: {} };
+    rerenderQuizSection();
+    showToast('錯題庫已清空。');
+  }
+
+  function rerenderQuizSection() {
+    const oldQuiz = document.getElementById('quiz');
+    const newQuiz = renderQuiz();
+    if (oldQuiz && newQuiz) {
+      oldQuiz.replaceWith(newQuiz);
+      updateProgressUI();
+    }
+  }
+
+  function hasChoiceAnswer(item, given) {
+    if (!item) return false;
+    if (item.type === 'single') return given !== undefined;
+    if (item.type === 'multiple') return Array.isArray(given) && given.length > 0;
+    return false;
+  }
+
+  function recordChoiceResult(item, isCorrect, isPractice) {
+    if (!item || item.type === 'text') return false;
+
+    const existing = wrongBook[item.id] || {};
+    if (isPractice) {
+      if (isCorrect) {
+        const nextStreak = (existing.correctStreak || 0) + 1;
+        if (nextStreak >= 2) {
+          delete wrongBook[item.id];
+          wrongBookStore.save(wrongBook);
+          updateWrongBookSummary();
+          showToast('已連續答對 2 次，這題已從錯題庫移除。');
+          return true;
+        }
+        wrongBook[item.id] = {
+          ...existing,
+          correctStreak: nextStreak,
+          lastPracticedAt: new Date().toISOString()
+        };
+        wrongBookStore.save(wrongBook);
+        updateWrongBookSummary();
+        showToast(`答對了！此題連續答對 ${nextStreak} / 2 次。`);
+        return false;
+      }
+
+      wrongBook[item.id] = {
+        ...existing,
+        correctStreak: 0,
+        missedAt: existing.missedAt || new Date().toISOString(),
+        lastPracticedAt: new Date().toISOString()
+      };
+      wrongBookStore.save(wrongBook);
+      updateWrongBookSummary();
+      showToast('本題仍在錯題庫，連續答對次數已歸零。');
+      return false;
+    }
+
+    if (!isCorrect) {
+      wrongBook[item.id] = {
+        ...existing,
+        correctStreak: 0,
+        missedAt: existing.missedAt || new Date().toISOString()
+      };
+      wrongBookStore.save(wrongBook);
+      updateWrongBookSummary();
+    }
+    return false;
+  }
+
   /* ============================================================
    * Render: Interactive Quiz Platform
    * ============================================================ */
   function renderQuiz() {
     const items = window.COURSE.quiz || [];
     if (!items.length) return null;
+    const wrongItems = getWrongBookItems();
+    const visibleItems = wrongPracticeMode ? wrongItems : items;
 
     const root = el('section', { class: 'chapter', id: 'quiz', 'data-section-id': 'quiz' });
     root.append(el('span', { class: 'eyebrow' }, '測驗作答區'));
     const uniqueIds = new Set(items.map(item => item.id.replace(/[a-z]/g, '')));
     root.append(el('h2', {}, `測驗與即時評估（共 ${uniqueIds.size} 題）`));
-    root.append(el('p', { class: 'lead' }, '請在此進行線上答題。選擇題會自動批改，混合題的手寫部分您可以點擊「對照參考答案」進行自我批改與核對。'));
+    root.append(el('p', { class: 'lead' }, wrongPracticeMode
+      ? '錯題重練只會顯示目前錯題庫內的選擇題。每題連續答對 2 次後會自動從錯題庫移除。'
+      : '請在此進行線上答題。選擇題會自動批改，混合題的手寫部分您可以點擊「對照參考答案」進行自我批改與核對。'));
+
+    const wrongPanel = renderWrongBookPanel(wrongItems.length);
+    root.append(wrongPanel);
 
     // Score Card
     const scoreCard = el('div', { class: 'score-summary-card', id: 'scoreCard' });
@@ -488,21 +679,27 @@
 
     const container = el('div', { class: 'quiz-container' });
 
-    items.forEach((item, index) => {
-      const isGraded = state.graded || (state.gradedQuestions && state.gradedQuestions[item.id]);
-      
+    if (wrongPracticeMode && !visibleItems.length) {
+      container.append(el('div', { class: 'wrong-book-empty' }, '目前沒有錯題。一般測驗答錯的題目會自動加入錯題庫。'));
+    }
+
+    visibleItems.forEach((item, index) => {
+      const answerSource = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
+      const gradedSource = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
+      const isGraded = wrongPracticeMode ? !!gradedSource[item.id] : (state.graded || (gradedSource && gradedSource[item.id]));
+
       // Determine card classes based on correctness if already graded
       const cardClasses = ['quiz-card'];
       if (isGraded) {
         if (item.type === 'single') {
-          const given = state.quiz[item.id];
+          const given = answerSource[item.id];
           if (given === item.answer) {
             cardClasses.push('correct');
           } else {
             cardClasses.push('incorrect');
           }
         } else if (item.type === 'multiple') {
-          const given = state.quiz[item.id] || [];
+          const given = answerSource[item.id] || [];
           let k = 0;
           const optionCount = item.options ? item.options.length : 4;
           for (let oIdx = 0; oIdx < optionCount; oIdx++) {
@@ -531,7 +728,7 @@
       if (item.type === 'single') {
         const opts = el('div', { class: 'quiz-options' });
         item.options.forEach((optText, optIdx) => {
-          const isSelected = state.quiz[item.id] === optIdx;
+          const isSelected = answerSource[item.id] === optIdx;
           const isCorrect = item.answer === optIdx;
           const optEl = el('div', {
             class: 'quiz-option' + (isSelected ? ' selected' : '') + (isGraded && isCorrect ? ' correct-answer' : ''),
@@ -542,10 +739,10 @@
           opts.append(optEl);
         });
         card.append(opts);
-      } 
+      }
       else if (item.type === 'multiple') {
         const opts = el('div', { class: 'quiz-options' });
-        const currentSelections = state.quiz[item.id] || [];
+        const currentSelections = answerSource[item.id] || [];
         item.options.forEach((optText, optIdx) => {
           const isSelected = currentSelections.includes(optIdx);
           const isCorrect = item.answer.includes(optIdx);
@@ -567,24 +764,24 @@
           onclick: () => confirmMultipleAnswer(item.id)
         }, '確認選項並看解析');
         card.append(confirmBtn);
-      } 
+      }
       else if (item.type === 'text') {
         const textGroup = el('div', { class: 'quiz-text-input' });
-        
+
         item.subQuestions.forEach((sub, subIdx) => {
           const savedAnswer = (state.textAnswers[item.id] && state.textAnswers[item.id][subIdx]) || '';
-          
+
           textGroup.append(el('div', { style: 'font-weight: 700; font-size: 14px; margin-bottom: 4px;' }, sub.label));
-          
+
           const textareaGroup = el('div', { class: 'quiz-textarea-group' });
           const textarea = el('textarea', {
             class: 'quiz-textarea',
             placeholder: sub.placeholder || '請在此輸入您的作答...',
             oninput: (e) => handleTextAnswerInput(item.id, subIdx, e.target, item.id + '-' + subIdx + '-count')
           }, savedAnswer);
-          
+
           textareaGroup.append(textarea);
-          
+
           const charCount = el('div', { class: 'char-counter', id: `${item.id}-${subIdx}-count` }, `${savedAnswer.length} 字`);
           textareaGroup.append(charCount);
           textGroup.append(textareaGroup);
@@ -618,7 +815,7 @@
 
     // Grading Actions Buttons
     const actions = el('div', { class: 'quiz-actions' });
-    actions.append(el('button', { class: 'grade-btn', type: 'button', onclick: gradeQuiz }, '送出答案與評分'));
+    actions.append(el('button', { class: 'grade-btn', type: 'button', onclick: gradeQuiz }, wrongPracticeMode ? '送出本次錯題重練' : '送出答案與評分'));
     actions.append(el('button', { class: 'reset-btn', type: 'button', onclick: () => store.reset() }, '清除所有紀錄'));
     root.append(actions);
 
@@ -629,85 +826,100 @@
    * Quiz Logic Handlers
    * ============================================================ */
   function selectSingleOption(itemId, optIdx) {
-    if (state.graded || state.gradedQuestions[itemId]) return; // locked once graded
-    state.quiz[itemId] = optIdx;
-    state.gradedQuestions[itemId] = true;
-    store.save(state);
-    
-    gradeSingleQuestion(itemId, optIdx);
+    const quizState = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
+    const gradedState = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
+    if ((!wrongPracticeMode && state.graded) || gradedState[itemId]) return; // locked once graded
+    quizState[itemId] = optIdx;
+    gradedState[itemId] = true;
+    if (!wrongPracticeMode) store.save(state);
+
+    gradeSingleQuestion(itemId, optIdx, wrongPracticeMode);
     updateProgressUI();
   }
 
   function toggleMultipleOption(itemId, optIdx) {
-    if (state.graded || state.gradedQuestions[itemId]) return; // locked once graded
-    if (!state.quiz[itemId]) state.quiz[itemId] = [];
-    
-    const idxInArr = state.quiz[itemId].indexOf(optIdx);
-    if (idxInArr > -1) state.quiz[itemId].splice(idxInArr, 1);
-    else state.quiz[itemId].push(optIdx);
-    
-    store.save(state);
+    const quizState = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
+    const gradedState = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
+    if ((!wrongPracticeMode && state.graded) || gradedState[itemId]) return; // locked once graded
+    if (!quizState[itemId]) quizState[itemId] = [];
+
+    const idxInArr = quizState[itemId].indexOf(optIdx);
+    if (idxInArr > -1) quizState[itemId].splice(idxInArr, 1);
+    else quizState[itemId].push(optIdx);
+
+    if (!wrongPracticeMode) store.save(state);
 
     // Re-render options
     const card = document.getElementById(`card-${itemId}`);
     const options = card.querySelectorAll('.quiz-option');
     options.forEach((opt, idx) => {
-      opt.classList.toggle('selected', state.quiz[itemId].includes(idx));
+      opt.classList.toggle('selected', quizState[itemId].includes(idx));
     });
     updateProgressUI();
   }
 
   function confirmMultipleAnswer(itemId) {
-    if (state.graded || state.gradedQuestions[itemId]) return;
-    
-    const selections = state.quiz[itemId] || [];
+    const quizState = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
+    const gradedState = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
+    if ((!wrongPracticeMode && state.graded) || gradedState[itemId]) return;
+
+    const selections = quizState[itemId] || [];
     if (selections.length === 0) {
       showToast('請先選擇至少一個選項！');
       return;
     }
-    
-    state.gradedQuestions[itemId] = true;
-    store.save(state);
-    
-    gradeMultipleQuestion(itemId);
+
+    gradedState[itemId] = true;
+    if (!wrongPracticeMode) store.save(state);
+
+    gradeMultipleQuestion(itemId, wrongPracticeMode);
     updateProgressUI();
   }
 
-  function gradeSingleQuestion(itemId, optIdx) {
+  function gradeSingleQuestion(itemId, optIdx, isPractice = false) {
     const card = document.getElementById(`card-${itemId}`);
     if (!card) return;
-    
+
     card.setAttribute('data-graded', 'true');
-    
+
     const item = window.COURSE.quiz.find(x => x.id === itemId);
     if (!item) return;
-    
+
     const correct = item.answer;
-    if (optIdx === correct) {
+    const isCorrect = optIdx === correct;
+    if (isCorrect) {
       card.classList.add('correct');
     } else {
       card.classList.add('incorrect');
     }
-    
+    const removedFromWrongBook = recordChoiceResult(item, isCorrect, isPractice);
+
     const options = card.querySelectorAll('.quiz-option');
     options.forEach((opt, idx) => {
       opt.classList.toggle('selected', idx === optIdx);
       opt.classList.toggle('correct-answer', idx === correct);
     });
+
+    if ((removedFromWrongBook || isPractice) && wrongPracticeMode) {
+      setTimeout(() => {
+        wrongPracticeState = { quiz: {}, gradedQuestions: {} };
+        rerenderQuizSection();
+      }, 700);
+    }
   }
 
-  function gradeMultipleQuestion(itemId) {
+  function gradeMultipleQuestion(itemId, isPractice = false) {
     const card = document.getElementById(`card-${itemId}`);
     if (!card) return;
-    
+
     card.setAttribute('data-graded', 'true');
-    
+
     const item = window.COURSE.quiz.find(x => x.id === itemId);
     if (!item) return;
-    
-    const given = state.quiz[itemId] || [];
+
+    const given = wrongPracticeMode ? (wrongPracticeState.quiz[itemId] || []) : (state.quiz[itemId] || []);
     const correct = item.answer;
-    
+
     let k = 0;
     const optionCount = item.options ? item.options.length : 4;
     for (let oIdx = 0; oIdx < optionCount; oIdx++) {
@@ -715,28 +927,37 @@
       const shouldChoose = correct.includes(oIdx);
       if (chosen !== shouldChoose) k++;
     }
-    
-    if (k === 0) {
+
+    const isCorrect = k === 0;
+    if (isCorrect) {
       card.classList.add('correct');
     } else {
       card.classList.add('incorrect');
     }
-    
+    const removedFromWrongBook = recordChoiceResult(item, isCorrect, isPractice);
+
     const options = card.querySelectorAll('.quiz-option');
     options.forEach((opt, idx) => {
       opt.classList.toggle('selected', given.includes(idx));
       opt.classList.toggle('correct-answer', correct.includes(idx));
     });
-    
+
     const confirmBtn = document.getElementById(`confirm-${itemId}`);
     if (confirmBtn) confirmBtn.style.display = 'none';
+
+    if ((removedFromWrongBook || isPractice) && wrongPracticeMode) {
+      setTimeout(() => {
+        wrongPracticeState = { quiz: {}, gradedQuestions: {} };
+        rerenderQuizSection();
+      }, 700);
+    }
   }
 
   function handleTextAnswerInput(itemId, subIdx, textarea, countId) {
     const text = textarea.value;
     const countEl = document.getElementById(countId);
     if (countEl) countEl.textContent = `${text.length} 字`;
-    
+
     if (!state.textAnswers[itemId]) state.textAnswers[itemId] = {};
     state.textAnswers[itemId][subIdx] = text;
     store.save(state);
@@ -753,7 +974,7 @@
       showToast('測驗已評分！');
       return;
     }
-    
+
     state.graded = true;
     store.save(state);
 
@@ -761,7 +982,7 @@
     let correctCount = 0;
     const quizItems = window.COURSE.quiz;
     const totalQuestions = quizItems.length;
-    
+
     // Grade choice questions
     quizItems.forEach(item => {
       const card = document.getElementById(`card-${item.id}`);
@@ -777,11 +998,11 @@
         } else {
           card.classList.add('incorrect');
         }
-      } 
+      }
       else if (item.type === 'multiple') {
         const given = state.quiz[item.id] || [];
         const correct = item.answer;
-        
+
         // Multi-choice grading: compare every available option.
         // k = number of wrong decisions (option chosen but incorrect, or correct option not chosen)
         let k = 0;
@@ -799,7 +1020,7 @@
           card.classList.add('incorrect');
         }
       }
-      
+
       // Update styling on options
       if (item.type === 'single') {
         const options = card.querySelectorAll('.quiz-option');
@@ -823,7 +1044,7 @@
     // Total score: normalize all questions to 100 points.
     scoreCard.append(el('h3', {}, '106H 中餐烹飪學科評分完成！'));
     scoreCard.append(el('div', { class: 'score-big' }, `${score.toFixed(1)} / 100`));
-    
+
     let rating = '需要再加油！請詳細閱讀錯題解析，加強不熟練的學科觀念。';
     let ratingClass = 'fail';
     if (score >= 80) {
@@ -845,7 +1066,45 @@
     updateProgressUI();
   }
 
-  /* ============================================================
+
+
+  function gradeWrongPractice() {
+    const quizItems = getWrongBookItems();
+    if (!quizItems.length) {
+      showToast('目前沒有錯題可重練。');
+      return;
+    }
+
+    let answered = 0;
+    quizItems.forEach(item => {
+      if (!hasChoiceAnswer(item, wrongPracticeState.quiz[item.id]) || wrongPracticeState.gradedQuestions[item.id]) {
+        return;
+      }
+      answered += 1;
+      wrongPracticeState.gradedQuestions[item.id] = true;
+      if (item.type === 'single') {
+        gradeSingleQuestion(item.id, wrongPracticeState.quiz[item.id], true);
+      } else if (item.type === 'multiple') {
+        gradeMultipleQuestion(item.id, true);
+      }
+    });
+
+    if (answered === 0) {
+      showToast('請先作答至少一題錯題。');
+      return;
+    }
+
+    const scoreCard = document.getElementById('scoreCard');
+    clear(scoreCard);
+    const remaining = getWrongBookCount();
+    scoreCard.append(el('h3', {}, '錯題重練已送出'));
+    scoreCard.append(el('div', { class: 'score-detail' }, `本次批改 ${answered} 題，目前錯題庫剩餘 ${remaining} 題。連續答對 2 次的題目會自動出庫。`));
+    scoreCard.classList.add('visible');
+    scoreCard.scrollIntoView({ behavior: 'smooth' });
+    updateProgressUI();
+  }
+
+/* ============================================================
    * Sidebar, Progress and Navigation Sync
    * ============================================================ */
   function renderSidebar() {
@@ -907,7 +1166,7 @@
     const quizItems = window.COURSE.quiz || [];
     const choiceItems = quizItems.filter(item => item.type !== 'text');
     const textItems = quizItems.filter(item => item.type === 'text');
-    
+
     // Count answers
     let answeredChoices = 0;
     choiceItems.forEach(item => {
@@ -935,7 +1194,7 @@
 
     const progressPercent = document.getElementById('progressPercent');
     const progressBar = document.getElementById('progressBar');
-    
+
     if (progressPercent) progressPercent.textContent = `${percent}%`;
     if (progressBar) progressBar.style.width = `${percent}%`;
 
@@ -1017,13 +1276,13 @@
     timerRunning = true;
     document.getElementById('timerToggleBtn').textContent = '暫停計時';
     document.getElementById('timerWidget').classList.add('running');
-    
+
     examTimer = setInterval(() => {
       if (timeRemaining > 0) {
         timeRemaining--;
         updateTimerDisplay();
         localStorage.setItem(`${STORE_KEY}-time-remaining`, timeRemaining);
-        
+
         // Time warning
         if (timeRemaining === 600) {
           showToast('⚠️ 注意：剩餘時間 10 分鐘！');
@@ -1057,7 +1316,7 @@
   function updateTimerDisplay() {
     const minutes = Math.floor(timeRemaining / 60);
     const seconds = timeRemaining % 60;
-    document.getElementById('timerDisplay').textContent = 
+    document.getElementById('timerDisplay').textContent =
       `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
@@ -1067,15 +1326,15 @@
   function openViewer(url) {
     const modal = el('div', { class: 'viewer-modal' });
     modal.append(el('div', { class: 'viewer-backdrop', onclick: () => closeViewer(modal) }));
-    
+
     const frame = el('div', { class: 'viewer-frame' });
     frame.append(el('button', { class: 'viewer-close', type: 'button', onclick: () => closeViewer(modal) }, '×'));
-    
+
     // We can't render raw Markdown directly inside an iframe simply, so let's load a custom viewer if it is an MD file
     const iframeUrl = url.endsWith('.md') ? `viewer.html?file=${encodeURIComponent(url)}` : url;
     frame.append(el('iframe', { src: iframeUrl, loading: 'lazy' }));
     modal.append(frame);
-    
+
     document.body.appendChild(modal);
     document.body.style.overflow = 'hidden'; // Body Scroll Lock (Pattern 11)
 
@@ -1120,7 +1379,7 @@
     if (syncBtn) {
       syncBtn.addEventListener('click', showSyncModal);
     }
-    
+
     // If a sync was just loaded, show a toast after a short delay
     if (window.__syncLoaded) {
       setTimeout(() => {
@@ -1143,13 +1402,13 @@
   function generateSyncQR() {
     const code = compressState();
     const syncUrl = `${window.location.origin}${window.location.pathname}#sync=${encodeURIComponent(code)}`;
-    
+
     let modal = document.getElementById('syncModal');
     if (!modal) {
       modal = el('div', { id: 'syncModal', class: 'modal-overlay' },
         el('div', { class: 'modal-content' },
           el('h3', {}, '手機接續作答 / 進度同步'),
-          el('p', { class: 'modal-desc' }, '請使用手機相機或 LINE 掃描下方二維碼，即可同步您目前的答題進度與計時時間，在手機上繼續測驗。'),
+          el('p', { class: 'modal-desc' }, '請使用手機相機或 LINE 掃描下方二維碼，即可同步您目前的答題進度、計時時間與錯題庫，在手機上繼續測驗與重練。'),
           el('div', { id: 'qrcodeCanvas', class: 'qrcode-container' }),
           el('div', { class: 'manual-link-container' },
             el('span', {}, '手動複製連結：'),
@@ -1171,10 +1430,10 @@
     } else {
       document.getElementById('syncUrlInput').value = syncUrl;
     }
-    
+
     const qrcodeCanvas = document.getElementById('qrcodeCanvas');
     qrcodeCanvas.innerHTML = '';
-    
+
     new QRCode(qrcodeCanvas, {
       text: syncUrl,
       width: 200,
@@ -1183,7 +1442,7 @@
       colorLight : "#ffffff",
       correctLevel : QRCode.CorrectLevel.M
     });
-    
+
     modal.classList.add('active');
   }
 
@@ -1214,7 +1473,7 @@
   function setupScrollSpy() {
     const sections = document.querySelectorAll('[data-section-id]');
     const links = document.querySelectorAll('.nav-link');
-    
+
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -1234,7 +1493,7 @@
         }
       });
     }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
-    
+
     sections.forEach(s => observer.observe(s));
   }
 
@@ -1249,17 +1508,17 @@
       type: 'button',
       onclick: toggleMobileSidebar
     }, '☰ 選單');
-    
+
     // Inject menu button on small screen
     topbar.prepend(menuBtn);
-    
+
     // Backdrop for mobile sidebar
     const backdrop = el('div', {
       id: 'sidebarBackdrop',
       onclick: toggleMobileSidebar
     });
     document.body.appendChild(backdrop);
-    
+
     // Add CSS rules dynamically for RWD button
     const style = document.createElement('style');
     style.innerHTML = `
@@ -1286,7 +1545,7 @@
    * ============================================================ */
   function init() {
     const content = document.getElementById('content');
-    
+
     // Render sections
     const overview = renderOverview();
     if (overview) content.append(overview);
