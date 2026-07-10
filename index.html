@@ -97,6 +97,7 @@
     }
 
     .sync-all-btn,
+    .backup-btn,
     .nav-btn,
     .card-btn,
     .copy-link-btn,
@@ -113,6 +114,22 @@
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--fg);
+      padding: 0 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar-actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .backup-btn {
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
       padding: 0 14px;
       box-shadow: var(--shadow);
     }
@@ -505,6 +522,37 @@
       font-size: 12px;
     }
 
+    .backup-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .backup-action-btn {
+      min-height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--fg);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .backup-code-box {
+      width: 100%;
+      min-height: 120px;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--fg);
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+      resize: vertical;
+    }
+
     .copy-link-btn,
     .close-modal-btn {
       width: 100%;
@@ -561,6 +609,12 @@
         margin-top: 18px;
       }
 
+      .topbar-actions,
+      .backup-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
       .toolbar {
         position: static;
         grid-template-columns: 1fr;
@@ -597,7 +651,10 @@
         <h1 id="portal-title">線上考場入口</h1>
         <p class="subtitle" id="portal-subtitle">依用途整理試卷列印、試題彙整與分年試卷，快速找到要使用的測驗或工具。</p>
       </header>
-      <button class="sync-all-btn" id="syncAllBtn" type="button">同步作答進度</button>
+      <div class="topbar-actions">
+        <button class="backup-btn" id="backupBtn" type="button">備份與還原</button>
+        <button class="sync-all-btn" id="syncAllBtn" type="button">同步作答進度</button>
+      </div>
     </div>
 
     <section class="toolbar" aria-label="入口篩選">
@@ -975,8 +1032,160 @@
       document.getElementById('syncModal')?.classList.remove('active');
     }
 
+    function initBackupTools() {
+      document.getElementById('backupBtn').addEventListener('click', showBackupModal);
+    }
+
+    function collectLearningRecords() {
+      const records = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!isLearningRecordKey(key)) continue;
+        records[key] = localStorage.getItem(key);
+      }
+      return {
+        version: 1,
+        app: 'onlineExam',
+        exportedAt: new Date().toISOString(),
+        origin: window.location.origin,
+        records
+      };
+    }
+
+    function isLearningRecordKey(key) {
+      return key.includes('progress') || key.endsWith('-time-remaining') || key.endsWith('-wrong-book-v1');
+    }
+
+    function encodeBackupPayload(payload) {
+      return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    }
+
+    function decodeBackupPayload(code) {
+      return JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+    }
+
+    function validateBackupPayload(payload) {
+      if (!payload || payload.app !== 'onlineExam' || !payload.records || typeof payload.records !== 'object') {
+        throw new Error('備份格式不正確');
+      }
+      return payload;
+    }
+
+    function restoreLearningRecords(payload) {
+      validateBackupPayload(payload);
+      let count = 0;
+      for (const [key, value] of Object.entries(payload.records)) {
+        if (!isLearningRecordKey(key)) continue;
+        localStorage.setItem(key, String(value));
+        count++;
+      }
+      return count;
+    }
+
+    function showBackupModal() {
+      let modal = document.getElementById('backupModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'backupModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+          <div class="modal-content">
+            <h3>備份與還原學習紀錄</h3>
+            <p class="modal-desc">可備份所有試卷的作答進度、計時與錯題庫。手機可使用備份碼，電腦可下載 JSON 檔。</p>
+            <div class="backup-actions">
+              <button class="backup-action-btn" id="downloadBackupBtn" type="button">下載備份檔</button>
+              <button class="backup-action-btn" id="importBackupBtn" type="button">匯入備份檔</button>
+              <button class="backup-action-btn" id="copyBackupCodeBtn" type="button">複製備份碼</button>
+              <button class="backup-action-btn" id="restoreBackupCodeBtn" type="button">貼上備份碼還原</button>
+            </div>
+            <textarea class="backup-code-box" id="backupCodeBox" placeholder="備份碼會顯示在這裡，也可貼上備份碼後按「貼上備份碼還原」。"></textarea>
+            <input id="backupFileInput" type="file" accept="application/json,.json" hidden>
+            <button class="close-modal-btn" id="closeBackupModalBtn" type="button">關閉</button>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackupFile);
+        document.getElementById('importBackupBtn').addEventListener('click', () => document.getElementById('backupFileInput').click());
+        document.getElementById('copyBackupCodeBtn').addEventListener('click', copyBackupCode);
+        document.getElementById('restoreBackupCodeBtn').addEventListener('click', restoreBackupCode);
+        document.getElementById('backupFileInput').addEventListener('change', importBackupFile);
+        document.getElementById('closeBackupModalBtn').addEventListener('click', hideBackupModal);
+        modal.addEventListener('click', event => {
+          if (event.target === modal) hideBackupModal();
+        });
+      }
+      modal.classList.add('active');
+    }
+
+    function hideBackupModal() {
+      document.getElementById('backupModal')?.classList.remove('active');
+    }
+
+    function downloadBackupFile() {
+      const payload = collectLearningRecords();
+      if (Object.keys(payload.records).length === 0) {
+        showToast('目前沒有可備份的學習紀錄');
+        return;
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `online-exam-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast('備份檔已建立');
+    }
+
+    function importBackupFile(event) {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const payload = validateBackupPayload(JSON.parse(String(reader.result)));
+          const count = restoreLearningRecords(payload);
+          showToast(`已還原 ${count} 筆學習紀錄`);
+        } catch (error) {
+          console.error('Import backup failed:', error);
+          showToast('匯入失敗，請確認備份檔格式');
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    function copyBackupCode() {
+      const payload = collectLearningRecords();
+      if (Object.keys(payload.records).length === 0) {
+        showToast('目前沒有可備份的學習紀錄');
+        return;
+      }
+      const code = encodeBackupPayload(payload);
+      const box = document.getElementById('backupCodeBox');
+      box.value = code;
+      box.select();
+      document.execCommand('copy');
+      showToast('備份碼已複製');
+    }
+
+    function restoreBackupCode() {
+      const box = document.getElementById('backupCodeBox');
+      try {
+        const payload = validateBackupPayload(decodeBackupPayload(box.value));
+        const count = restoreLearningRecords(payload);
+        showToast(`已還原 ${count} 筆學習紀錄`);
+      } catch (error) {
+        console.error('Restore backup code failed:', error);
+        showToast('還原失敗，請確認備份碼是否完整');
+      }
+    }
+
     renderPortal();
     initGlobalSync();
+    initBackupTools();
   </script>
 </body>
 </html>
