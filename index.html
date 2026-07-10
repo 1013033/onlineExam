@@ -173,6 +173,45 @@
       margin-bottom: 28px;
     }
 
+    .wrong-review-entry {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+      margin: 0 0 32px;
+      padding: 22px;
+      border: 1px solid color-mix(in srgb, var(--accent-2) 44%, var(--border));
+      border-left: 5px solid var(--accent-2);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--soft-rust) 62%, var(--surface));
+    }
+
+    .wrong-review-entry h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.35;
+    }
+
+    .wrong-review-entry p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .wrong-review-entry a {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 18px;
+      border-radius: 8px;
+      background: var(--accent-2);
+      color: #fff;
+      font-weight: 900;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
     .summary-tile {
       display: flex;
       align-items: center;
@@ -539,6 +578,10 @@
         grid-template-columns: 1fr;
       }
 
+      .wrong-review-entry {
+        grid-template-columns: 1fr;
+      }
+
       .category-count {
         display: inline-block;
         margin-top: 8px;
@@ -563,6 +606,13 @@
     </section>
 
     <section class="summary-row" id="summaryRow" aria-label="分類統計"></section>
+    <section class="wrong-review-entry" aria-label="錯題總複習">
+      <div>
+        <h2>錯題總複習</h2>
+        <p>彙整所有試卷中尚未出庫的錯題，集中檢視答案與解析。這裡不會自動出庫，確認掌握後請自行點選「我學會了」。</p>
+      </div>
+      <a href="wrong-review/">開啟錯題總複習</a>
+    </section>
     <div id="categoryRoot"></div>
     <div class="empty-state" id="emptyState">找不到符合條件的項目，請換個關鍵字或切回全部分類。</div>
   </main>

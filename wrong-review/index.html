@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>錯題總複習 - 線上考場</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Wrong Answer Review</p>
+        <h1>錯題總複習</h1>
+        <p class="subtitle">集中整理所有試卷中尚未出庫的錯題。這裡不會自動出庫，請在確認已掌握後點選「我學會了」。</p>
+      </div>
+      <a class="home-link" href="../">回到入口</a>
+    </header>
+
+    <section class="toolbar" aria-label="錯題篩選">
+      <input id="searchInput" class="search" type="search" placeholder="搜尋題目、選項、來源試卷或解析" autocomplete="off" />
+      <select id="sourceFilter" class="select" aria-label="來源試卷">
+        <option value="all">全部來源</option>
+      </select>
+    </section>
+
+    <section class="stats" aria-label="錯題統計">
+      <div class="stat">
+        <span>待複習錯題</span>
+        <strong id="totalCount">0</strong>
+      </div>
+      <div class="stat">
+        <span>來源試卷</span>
+        <strong id="sourceCount">0</strong>
+      </div>
+      <div class="stat">
+        <span>已篩選顯示</span>
+        <strong id="visibleCount">0</strong>
+      </div>
+    </section>
+
+    <div id="statusBox" class="status-box">正在讀取錯題庫...</div>
+    <section id="reviewList" class="review-list" aria-live="polite"></section>
+  </main>
+
+  <script src="../portal-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
