@@ -71,18 +71,47 @@
   const STORE_KEY = (window.COURSE && window.COURSE.meta && window.COURSE.meta.storeKey)
     ? window.COURSE.meta.storeKey
     : '100-baking-progress-v1';
+  const WRONG_BOOK_KEY = `${STORE_KEY}-wrong-book-v1`;
 
   function compressState() {
-    const quizItems = window.COURSE.quiz || [];
-    const answers = quizItems.map(item => state.quiz[item.id] !== undefined ? state.quiz[item.id] : '_').join('');
     const timeVal = localStorage.getItem(`${STORE_KEY}-time-remaining`) || (window.COURSE && window.COURSE.meta && window.COURSE.meta.timerSeconds) || 3600;
-    const gradedVal = state.graded ? 1 : 0;
-    return `${answers}:${timeVal}:${gradedVal}`;
+    const payload = {
+      version: 2,
+      state: {
+        tasks: state.tasks || {},
+        quiz: state.quiz || {},
+        textAnswers: state.textAnswers || {},
+        graded: !!state.graded,
+        gradedQuestions: state.gradedQuestions || {},
+        lastSection: state.lastSection || ''
+      },
+      timeRemaining: parseInt(timeVal, 10),
+      wrongBook: wrongBook || {}
+    };
+    return `v2:${encodeURIComponent(JSON.stringify(payload))}`;
   }
 
   function decompressState(str) {
     try {
-      const parts = decodeURIComponent(str).split(':');
+      const decoded = decodeURIComponent(str);
+      if (decoded.startsWith('v2:')) {
+        const payload = JSON.parse(decodeURIComponent(decoded.slice(3)));
+        const parsedTime = Number.isFinite(payload.timeRemaining) ? payload.timeRemaining : parseInt(payload.timeRemaining, 10);
+        return {
+          state: {
+            tasks: (payload.state && payload.state.tasks) || {},
+            quiz: (payload.state && payload.state.quiz) || {},
+            textAnswers: (payload.state && payload.state.textAnswers) || {},
+            graded: !!(payload.state && payload.state.graded),
+            gradedQuestions: (payload.state && payload.state.gradedQuestions) || {},
+            lastSection: (payload.state && payload.state.lastSection) || ''
+          },
+          timeRemaining: Number.isFinite(parsedTime) ? parsedTime : null,
+          wrongBook: payload.wrongBook || {}
+        };
+      }
+
+      const parts = decoded.split(':');
       if (parts.length < 3) return null;
       const [answersStr, timeStr, gradedStr] = parts;
       
@@ -115,7 +144,8 @@
       
       return {
         state: parsedState,
-        timeRemaining: parseInt(timeStr, 10)
+        timeRemaining: parseInt(timeStr, 10),
+        wrongBook: {}
       };
     } catch (e) {
       return null;
@@ -136,6 +166,9 @@
             localStorage.setItem(STORE_KEY, JSON.stringify(decompressed.state));
             if (decompressed.timeRemaining !== null) {
               localStorage.setItem(`${STORE_KEY}-time-remaining`, decompressed.timeRemaining);
+            }
+            if (decompressed.wrongBook) {
+              localStorage.setItem(WRONG_BOOK_KEY, JSON.stringify(decompressed.wrongBook));
             }
             window.__syncLoaded = true;
             return decompressed.state;
@@ -163,12 +196,32 @@
     save(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); },
     reset() {
       localStorage.removeItem(STORE_KEY);
+      localStorage.removeItem(WRONG_BOOK_KEY);
       localStorage.removeItem(`${STORE_KEY}-time-remaining`);
       location.reload();
     }
   };
   let state = store.load();
   state.gradedQuestions = state.gradedQuestions || {};
+
+  const wrongBookStore = {
+    load() {
+      try {
+        return JSON.parse(localStorage.getItem(WRONG_BOOK_KEY)) || {};
+      } catch {
+        return {};
+      }
+    },
+    save(book) {
+      localStorage.setItem(WRONG_BOOK_KEY, JSON.stringify(book));
+    },
+    reset() {
+      localStorage.removeItem(WRONG_BOOK_KEY);
+    }
+  };
+  let wrongBook = wrongBookStore.load();
+  let wrongPracticeMode = false;
+  let wrongPracticeState = { quiz: {}, gradedQuestions: {} };
 
   /* ============================================================
    * Tiny DOM helper (no framework, no innerHTML for user content)
@@ -469,18 +522,156 @@
     return root;
   }
 
+  function getWrongBookItems() {
+    const quizItems = window.COURSE.quiz || [];
+    return quizItems.filter(item => item.type !== 'text' && wrongBook[item.id]);
+  }
+
+  function getWrongBookCount() {
+    return Object.keys(wrongBook).length;
+  }
+
+  function renderWrongBookPanel(count) {
+    const panel = el('div', { class: 'wrong-book-panel', id: 'wrongBookPanel' });
+    const meta = el('div', { class: 'wrong-book-meta' });
+    meta.append(el('div', { class: 'wrong-book-title' }, wrongPracticeMode ? '錯題重練中' : '錯題庫'));
+    meta.append(el('div', { class: 'wrong-book-desc', id: 'wrongBookDesc' }, getWrongBookSummaryText(count)));
+
+    const actions = el('div', { class: 'wrong-book-actions' });
+    actions.append(el('button', {
+      class: 'wrong-book-btn',
+      id: 'wrongPracticeBtn',
+      type: 'button',
+      disabled: count === 0 && !wrongPracticeMode,
+      onclick: toggleWrongPracticeMode
+    }, wrongPracticeMode ? '返回完整試卷' : '錯題重練'));
+    actions.append(el('button', {
+      class: 'wrong-book-btn secondary',
+      id: 'clearWrongBookBtn',
+      type: 'button',
+      disabled: count === 0,
+      onclick: clearWrongBook
+    }, '清空錯題庫'));
+
+    panel.append(meta, actions);
+    return panel;
+  }
+
+  function getWrongBookSummaryText(count = getWrongBookCount()) {
+    if (count === 0) return '目前沒有錯題。答錯的選擇題會自動加入，重練連續答對 2 次後自動出庫。';
+    return `目前 ${count} 題待重練。每題連續答對 2 次會自動出庫；答錯會歸零重新累計。`;
+  }
+
+  function updateWrongBookSummary() {
+    const count = getWrongBookCount();
+    const desc = document.getElementById('wrongBookDesc');
+    if (desc) desc.textContent = getWrongBookSummaryText(count);
+    const practiceBtn = document.getElementById('wrongPracticeBtn');
+    if (practiceBtn) practiceBtn.disabled = count === 0 && !wrongPracticeMode;
+    const clearBtn = document.getElementById('clearWrongBookBtn');
+    if (clearBtn) clearBtn.disabled = count === 0;
+  }
+
+  function toggleWrongPracticeMode() {
+    wrongPracticeMode = !wrongPracticeMode;
+    wrongPracticeState = { quiz: {}, gradedQuestions: {} };
+    rerenderQuizSection();
+    showToast(wrongPracticeMode ? '已進入錯題重練。' : '已返回完整試卷。');
+  }
+
+  function clearWrongBook() {
+    wrongBook = {};
+    wrongBookStore.reset();
+    wrongPracticeMode = false;
+    wrongPracticeState = { quiz: {}, gradedQuestions: {} };
+    rerenderQuizSection();
+    showToast('錯題庫已清空。');
+  }
+
+  function rerenderQuizSection() {
+    const oldQuiz = document.getElementById('quiz');
+    const newQuiz = renderQuiz();
+    if (oldQuiz && newQuiz) {
+      oldQuiz.replaceWith(newQuiz);
+      updateProgressUI();
+    }
+  }
+
+  function hasChoiceAnswer(item, given) {
+    if (!item) return false;
+    if (item.type === 'single') return given !== undefined;
+    if (item.type === 'multiple') return Array.isArray(given) && given.length > 0;
+    return false;
+  }
+
+  function recordChoiceResult(item, isCorrect, isPractice) {
+    if (!item || item.type === 'text') return false;
+
+    const existing = wrongBook[item.id] || {};
+    if (isPractice) {
+      if (isCorrect) {
+        const nextStreak = (existing.correctStreak || 0) + 1;
+        if (nextStreak >= 2) {
+          delete wrongBook[item.id];
+          wrongBookStore.save(wrongBook);
+          updateWrongBookSummary();
+          showToast('已連續答對 2 次，這題已從錯題庫移除。');
+          return true;
+        }
+        wrongBook[item.id] = {
+          ...existing,
+          correctStreak: nextStreak,
+          lastPracticedAt: new Date().toISOString()
+        };
+        wrongBookStore.save(wrongBook);
+        updateWrongBookSummary();
+        showToast(`答對了！此題連續答對 ${nextStreak} / 2 次。`);
+        return false;
+      }
+
+      wrongBook[item.id] = {
+        ...existing,
+        correctStreak: 0,
+        missedAt: existing.missedAt || new Date().toISOString(),
+        lastPracticedAt: new Date().toISOString()
+      };
+      wrongBookStore.save(wrongBook);
+      updateWrongBookSummary();
+      showToast('本題仍在錯題庫，連續答對次數已歸零。');
+      return false;
+    }
+
+    if (!isCorrect) {
+      wrongBook[item.id] = {
+        ...existing,
+        correctStreak: 0,
+        missedAt: existing.missedAt || new Date().toISOString()
+      };
+      wrongBookStore.save(wrongBook);
+      updateWrongBookSummary();
+    }
+    return false;
+  }
+
   /* ============================================================
    * Render: Interactive Quiz Platform
    * ============================================================ */
   function renderQuiz() {
     const items = window.COURSE.quiz || [];
     if (!items.length) return null;
+    const wrongItems = getWrongBookItems();
+    const visibleItems = wrongPracticeMode ? wrongItems : items;
 
     const root = el('section', { class: 'chapter', id: 'quiz', 'data-section-id': 'quiz' });
     root.append(el('span', { class: 'eyebrow' }, '測驗作答區'));
     const uniqueIds = new Set(items.map(item => item.id.replace(/[a-z]/g, '')));
     root.append(el('h2', {}, `測驗與即時評估（共 ${uniqueIds.size} 題）`));
-    root.append(el('p', { class: 'lead' }, '請在此進行線上答題。選擇題會自動批改，混合題的手寫部分您可以點擊「對照參考答案」進行自我批改與核對。'));
+    root.append(el('p', { class: 'lead' }, wrongPracticeMode
+      ? '錯題重練只會顯示目前錯題庫內的選擇題。每題連續答對 2 次後會自動從錯題庫移除。'
+      : '請在此進行線上答題。選擇題會自動批改，混合題的手寫部分您可以點擊「對照參考答案」進行自我批改與核對。'));
+
+    const wrongPanel = renderWrongBookPanel(wrongItems.length);
+    root.append(wrongPanel);
 
     // Score Card
     const scoreCard = el('div', { class: 'score-summary-card', id: 'scoreCard' });
@@ -488,21 +679,27 @@
 
     const container = el('div', { class: 'quiz-container' });
 
-    items.forEach((item, index) => {
-      const isGraded = state.graded || (state.gradedQuestions && state.gradedQuestions[item.id]);
+    if (wrongPracticeMode && !visibleItems.length) {
+      container.append(el('div', { class: 'wrong-book-empty' }, '目前沒有錯題。一般測驗答錯的題目會自動加入錯題庫。'));
+    }
+
+    visibleItems.forEach((item, index) => {
+      const answerSource = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
+      const gradedSource = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
+      const isGraded = wrongPracticeMode ? !!gradedSource[item.id] : (state.graded || (gradedSource && gradedSource[item.id]));
       
       // Determine card classes based on correctness if already graded
       const cardClasses = ['quiz-card'];
       if (isGraded) {
         if (item.type === 'single') {
-          const given = state.quiz[item.id];
+          const given = answerSource[item.id];
           if (given === item.answer) {
             cardClasses.push('correct');
           } else {
             cardClasses.push('incorrect');
           }
         } else if (item.type === 'multiple') {
-          const given = state.quiz[item.id] || [];
+          const given = answerSource[item.id] || [];
           let k = 0;
           const optionCount = item.options ? item.options.length : 4;
           for (let oIdx = 0; oIdx < optionCount; oIdx++) {
@@ -531,7 +728,7 @@
       if (item.type === 'single') {
         const opts = el('div', { class: 'quiz-options' });
         item.options.forEach((optText, optIdx) => {
-          const isSelected = state.quiz[item.id] === optIdx;
+          const isSelected = answerSource[item.id] === optIdx;
           const isCorrect = item.answer === optIdx;
           const optEl = el('div', {
             class: 'quiz-option' + (isSelected ? ' selected' : '') + (isGraded && isCorrect ? ' correct-answer' : ''),
@@ -545,7 +742,7 @@
       } 
       else if (item.type === 'multiple') {
         const opts = el('div', { class: 'quiz-options' });
-        const currentSelections = state.quiz[item.id] || [];
+        const currentSelections = answerSource[item.id] || [];
         item.options.forEach((optText, optIdx) => {
           const isSelected = currentSelections.includes(optIdx);
           const isCorrect = item.answer.includes(optIdx);
@@ -618,7 +815,7 @@
 
     // Grading Actions Buttons
     const actions = el('div', { class: 'quiz-actions' });
-    actions.append(el('button', { class: 'grade-btn', type: 'button', onclick: gradeQuiz }, '送出答案與評分'));
+    actions.append(el('button', { class: 'grade-btn', type: 'button', onclick: gradeQuiz }, wrongPracticeMode ? '送出本次錯題重練' : '送出答案與評分'));
     actions.append(el('button', { class: 'reset-btn', type: 'button', onclick: () => store.reset() }, '清除所有紀錄'));
     root.append(actions);
 
@@ -629,51 +826,57 @@
    * Quiz Logic Handlers
    * ============================================================ */
   function selectSingleOption(itemId, optIdx) {
-    if (state.graded || state.gradedQuestions[itemId]) return; // locked once graded
-    state.quiz[itemId] = optIdx;
-    state.gradedQuestions[itemId] = true;
-    store.save(state);
+    const quizState = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
+    const gradedState = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
+    if ((!wrongPracticeMode && state.graded) || gradedState[itemId]) return; // locked once graded
+    quizState[itemId] = optIdx;
+    gradedState[itemId] = true;
+    if (!wrongPracticeMode) store.save(state);
     
-    gradeSingleQuestion(itemId, optIdx);
+    gradeSingleQuestion(itemId, optIdx, wrongPracticeMode);
     updateProgressUI();
   }
 
   function toggleMultipleOption(itemId, optIdx) {
-    if (state.graded || state.gradedQuestions[itemId]) return; // locked once graded
-    if (!state.quiz[itemId]) state.quiz[itemId] = [];
+    const quizState = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
+    const gradedState = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
+    if ((!wrongPracticeMode && state.graded) || gradedState[itemId]) return; // locked once graded
+    if (!quizState[itemId]) quizState[itemId] = [];
     
-    const idxInArr = state.quiz[itemId].indexOf(optIdx);
-    if (idxInArr > -1) state.quiz[itemId].splice(idxInArr, 1);
-    else state.quiz[itemId].push(optIdx);
+    const idxInArr = quizState[itemId].indexOf(optIdx);
+    if (idxInArr > -1) quizState[itemId].splice(idxInArr, 1);
+    else quizState[itemId].push(optIdx);
     
-    store.save(state);
+    if (!wrongPracticeMode) store.save(state);
 
     // Re-render options
     const card = document.getElementById(`card-${itemId}`);
     const options = card.querySelectorAll('.quiz-option');
     options.forEach((opt, idx) => {
-      opt.classList.toggle('selected', state.quiz[itemId].includes(idx));
+      opt.classList.toggle('selected', quizState[itemId].includes(idx));
     });
     updateProgressUI();
   }
 
   function confirmMultipleAnswer(itemId) {
-    if (state.graded || state.gradedQuestions[itemId]) return;
+    const quizState = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
+    const gradedState = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
+    if ((!wrongPracticeMode && state.graded) || gradedState[itemId]) return;
     
-    const selections = state.quiz[itemId] || [];
+    const selections = quizState[itemId] || [];
     if (selections.length === 0) {
       showToast('請先選擇至少一個選項！');
       return;
     }
     
-    state.gradedQuestions[itemId] = true;
-    store.save(state);
+    gradedState[itemId] = true;
+    if (!wrongPracticeMode) store.save(state);
     
-    gradeMultipleQuestion(itemId);
+    gradeMultipleQuestion(itemId, wrongPracticeMode);
     updateProgressUI();
   }
 
-  function gradeSingleQuestion(itemId, optIdx) {
+  function gradeSingleQuestion(itemId, optIdx, isPractice = false) {
     const card = document.getElementById(`card-${itemId}`);
     if (!card) return;
     
@@ -683,20 +886,29 @@
     if (!item) return;
     
     const correct = item.answer;
-    if (optIdx === correct) {
+    const isCorrect = optIdx === correct;
+    if (isCorrect) {
       card.classList.add('correct');
     } else {
       card.classList.add('incorrect');
     }
+    const removedFromWrongBook = recordChoiceResult(item, isCorrect, isPractice);
     
     const options = card.querySelectorAll('.quiz-option');
     options.forEach((opt, idx) => {
       opt.classList.toggle('selected', idx === optIdx);
       opt.classList.toggle('correct-answer', idx === correct);
     });
+
+    if ((removedFromWrongBook || isPractice) && wrongPracticeMode) {
+      setTimeout(() => {
+        wrongPracticeState = { quiz: {}, gradedQuestions: {} };
+        rerenderQuizSection();
+      }, 700);
+    }
   }
 
-  function gradeMultipleQuestion(itemId) {
+  function gradeMultipleQuestion(itemId, isPractice = false) {
     const card = document.getElementById(`card-${itemId}`);
     if (!card) return;
     
@@ -705,7 +917,7 @@
     const item = window.COURSE.quiz.find(x => x.id === itemId);
     if (!item) return;
     
-    const given = state.quiz[itemId] || [];
+    const given = wrongPracticeMode ? (wrongPracticeState.quiz[itemId] || []) : (state.quiz[itemId] || []);
     const correct = item.answer;
     
     let k = 0;
@@ -716,11 +928,13 @@
       if (chosen !== shouldChoose) k++;
     }
     
-    if (k === 0) {
+    const isCorrect = k === 0;
+    if (isCorrect) {
       card.classList.add('correct');
     } else {
       card.classList.add('incorrect');
     }
+    const removedFromWrongBook = recordChoiceResult(item, isCorrect, isPractice);
     
     const options = card.querySelectorAll('.quiz-option');
     options.forEach((opt, idx) => {
@@ -730,6 +944,13 @@
     
     const confirmBtn = document.getElementById(`confirm-${itemId}`);
     if (confirmBtn) confirmBtn.style.display = 'none';
+
+    if ((removedFromWrongBook || isPractice) && wrongPracticeMode) {
+      setTimeout(() => {
+        wrongPracticeState = { quiz: {}, gradedQuestions: {} };
+        rerenderQuizSection();
+      }, 700);
+    }
   }
 
   function handleTextAnswerInput(itemId, subIdx, textarea, countId) {
@@ -749,6 +970,11 @@
   }
 
   function gradeQuiz() {
+    if (wrongPracticeMode) {
+      gradeWrongPractice();
+      return;
+    }
+
     if (state.graded) {
       showToast('測驗已評分！');
       return;
@@ -777,6 +1003,9 @@
         } else {
           card.classList.add('incorrect');
         }
+        if (hasChoiceAnswer(item, given)) {
+          recordChoiceResult(item, given === correct, false);
+        }
       } 
       else if (item.type === 'multiple') {
         const given = state.quiz[item.id] || [];
@@ -797,6 +1026,9 @@
           correctCount += 1;
         } else {
           card.classList.add('incorrect');
+        }
+        if (hasChoiceAnswer(item, given)) {
+          recordChoiceResult(item, k === 0, false);
         }
       }
       
@@ -842,6 +1074,42 @@
     scoreCard.scrollIntoView({ behavior: 'smooth' });
 
     showToast('評分完成！請查閱解析。');
+    updateProgressUI();
+  }
+
+  function gradeWrongPractice() {
+    const quizItems = getWrongBookItems();
+    if (!quizItems.length) {
+      showToast('目前沒有錯題可重練。');
+      return;
+    }
+
+    let answered = 0;
+    quizItems.forEach(item => {
+      if (!hasChoiceAnswer(item, wrongPracticeState.quiz[item.id]) || wrongPracticeState.gradedQuestions[item.id]) {
+        return;
+      }
+      answered += 1;
+      wrongPracticeState.gradedQuestions[item.id] = true;
+      if (item.type === 'single') {
+        gradeSingleQuestion(item.id, wrongPracticeState.quiz[item.id], true);
+      } else if (item.type === 'multiple') {
+        gradeMultipleQuestion(item.id, true);
+      }
+    });
+
+    if (answered === 0) {
+      showToast('請先作答至少一題錯題。');
+      return;
+    }
+
+    const scoreCard = document.getElementById('scoreCard');
+    clear(scoreCard);
+    const remaining = getWrongBookCount();
+    scoreCard.append(el('h3', {}, '錯題重練已送出'));
+    scoreCard.append(el('div', { class: 'score-detail' }, `本次批改 ${answered} 題，目前錯題庫剩餘 ${remaining} 題。連續答對 2 次的題目會自動出庫。`));
+    scoreCard.classList.add('visible');
+    scoreCard.scrollIntoView({ behavior: 'smooth' });
     updateProgressUI();
   }
 
@@ -1149,7 +1417,7 @@
       modal = el('div', { id: 'syncModal', class: 'modal-overlay' },
         el('div', { class: 'modal-content' },
           el('h3', {}, '手機接續作答 / 進度同步'),
-          el('p', { class: 'modal-desc' }, '請使用手機相機或 LINE 掃描下方二維碼，即可同步您目前的答題進度與計時時間，在手機上繼續測驗。'),
+          el('p', { class: 'modal-desc' }, '請使用手機相機或 LINE 掃描下方二維碼，即可同步您目前的答題進度、計時時間與錯題庫，在手機上繼續測驗與重練。'),
           el('div', { id: 'qrcodeCanvas', class: 'qrcode-container' }),
           el('div', { class: 'manual-link-container' },
             el('span', {}, '手動複製連結：'),
