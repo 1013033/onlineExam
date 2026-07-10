@@ -182,6 +182,8 @@ h1 {
   background: var(--surface);
   box-shadow: 0 8px 22px rgba(23, 32, 36, 0.04);
   overflow: hidden;
+  content-visibility: auto;
+  contain-intrinsic-size: 420px;
 }
 
 .wrong-card.hidden {

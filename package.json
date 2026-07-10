@@ -4,5 +4,8 @@
   "description": "學術能力模擬檢測線上平台門戶",
   "scripts": {
     "serve": "npx serve ."
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
   }
 }

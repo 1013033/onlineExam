@@ -1,5 +1,11 @@
+const WRONG_BOOK_SUFFIX = '-wrong-book-v1';
+const RENDER_BATCH_SIZE = 80;
 const EXAM_SOURCES = [];
+
 let wrongItems = [];
+let filteredItems = [];
+let renderToken = 0;
+let filterTimer = null;
 
 const els = {
   list: document.getElementById('reviewList'),
@@ -18,48 +24,60 @@ async function init() {
   try {
     await collectWrongItems();
     renderSourceOptions();
-    renderList();
     applyFilters();
   } catch (error) {
     console.error('Load wrong review failed:', error);
-    setStatus('讀取錯題時發生錯誤，請重新整理頁面後再試。');
+    setStatus('載入錯題複習失敗，請重新整理頁面後再試。');
   }
 }
 
 function bindEvents() {
-  els.search.addEventListener('input', applyFilters);
+  els.search.addEventListener('input', scheduleFilters);
   els.sourceFilter.addEventListener('change', applyFilters);
+  els.list.addEventListener('click', event => {
+    const button = event.target.closest('[data-learned-key]');
+    if (!button) return;
+    markLearned(button.dataset.learnedKey);
+  });
 }
 
 async function collectWrongItems() {
-  setStatus('正在讀取各試卷錯題庫...');
+  setStatus('正在整理錯題紀錄...');
+
   const exams = getReviewableExams();
-  for (const exam of exams) {
+  const wrongBookEntries = getWrongBookEntries();
+  const examsWithWrongBooks = exams
+    .map(exam => ({
+      exam,
+      wrongBooks: wrongBookEntries.filter(entry => isWrongBookForExam(entry, exam))
+    }))
+    .filter(entry => entry.wrongBooks.length > 0);
+
+  if (!examsWithWrongBooks.length) return;
+
+  let loaded = 0;
+  for (const { exam, wrongBooks } of examsWithWrongBooks) {
+    loaded += 1;
+    setStatus(`正在載入錯題來源 ${loaded} / ${examsWithWrongBooks.length}...`);
+
     const course = await loadCourse(exam);
     if (!course || !course.meta || !Array.isArray(course.quiz)) continue;
 
-    const storeKey = course.meta.storeKey;
-    if (!storeKey) continue;
+    const quizById = new Map(course.quiz.map(item => [String(item.id), item]));
+    for (const wrongBookEntry of wrongBooks) {
+      for (const id of Object.keys(wrongBookEntry.wrongBook)) {
+        const item = quizById.get(String(id));
+        if (!item || item.type === 'text') continue;
 
-    const wrongBookKey = `${storeKey}-wrong-book-v1`;
-    const wrongBook = readWrongBook(wrongBookKey);
-    const wrongIds = Object.keys(wrongBook);
-    if (!wrongIds.length) continue;
-
-    const quizById = new Map(course.quiz.map(item => [item.id, item]));
-    wrongIds.forEach(id => {
-      const item = quizById.get(id);
-      if (!item || item.type === 'text') return;
-      wrongItems.push({
-        id,
-        item,
-        exam,
-        course,
-        wrongBook,
-        wrongBookKey,
-        wrongMeta: wrongBook[id] || {}
-      });
-    });
+        wrongItems.push(createWrongEntry({
+          id,
+          item,
+          exam,
+          course,
+          wrongBookEntry
+        }));
+      }
+    }
   }
 
   const sourceMap = new Map();
@@ -76,14 +94,59 @@ function getReviewableExams() {
   });
 }
 
+function getWrongBookEntries() {
+  const entries = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key || !key.endsWith(WRONG_BOOK_SUFFIX)) continue;
+
+    const wrongBook = readWrongBook(key);
+    if (!Object.keys(wrongBook).length) continue;
+
+    entries.push({
+      key,
+      storeKey: key.slice(0, -WRONG_BOOK_SUFFIX.length),
+      wrongBook
+    });
+  }
+  return entries;
+}
+
+function isWrongBookForExam(entry, exam) {
+  const slug = String(exam.href || '').replace(/\/$/, '');
+  return Boolean(slug) && entry.storeKey.startsWith(`${slug}-`);
+}
+
+function createWrongEntry({ id, item, exam, course, wrongBookEntry }) {
+  const wrongMeta = wrongBookEntry.wrongBook[id] || {};
+  return {
+    id,
+    item,
+    exam,
+    course,
+    wrongBookKey: wrongBookEntry.key,
+    wrongMeta,
+    key: `${wrongBookEntry.key}::${id}`,
+    searchText: [
+      exam.title,
+      exam.tag,
+      course.meta && course.meta.title,
+      item.q,
+      item.explanation,
+      ...(item.options || [])
+    ].join(' ').toLowerCase()
+  };
+}
+
 async function loadCourse(exam) {
   const href = exam.href || '';
   if (!href) return null;
-  const scriptUrl = `../${href.replace(/\/?$/, '/') }course-data.js`;
+
+  const scriptUrl = `../${href.replace(/\/?$/, '/')}course-data.js`;
   return new Promise(resolve => {
     const previous = window.COURSE;
     const script = document.createElement('script');
-    script.src = `${scriptUrl}?review=${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    script.src = `${scriptUrl}?review=${Date.now()}`;
     script.async = true;
     script.onload = () => {
       const course = window.COURSE;
@@ -117,41 +180,86 @@ function renderSourceOptions() {
   els.sourceFilter.innerHTML = options.join('');
 }
 
-function renderList() {
+function scheduleFilters() {
+  window.clearTimeout(filterTimer);
+  filterTimer = window.setTimeout(applyFilters, 120);
+}
+
+function applyFilters() {
+  const query = els.search.value.trim().toLowerCase();
+  const source = els.sourceFilter.value;
+
+  filteredItems = wrongItems.filter(entry => {
+    const sourceMatch = source === 'all' || entry.exam.href === source;
+    const queryMatch = !query || entry.searchText.includes(query);
+    return sourceMatch && queryMatch;
+  });
+
+  updateStats(filteredItems.length);
+  renderList(filteredItems);
+}
+
+function renderList(items) {
+  renderToken += 1;
+  const currentToken = renderToken;
+
   if (!wrongItems.length) {
     els.list.innerHTML = '';
-    setStatus('目前沒有尚未出庫的錯題。作答錯誤的題目會自動出現在這裡。');
+    setStatus('目前沒有錯題。作答錯誤的題目會自動收進這裡。');
     updateStats(0);
     return;
   }
 
+  if (!items.length) {
+    els.list.innerHTML = '';
+    setStatus('沒有符合篩選條件的錯題。');
+    return;
+  }
+
   els.status.classList.add('hidden');
-  els.list.innerHTML = wrongItems.map(renderWrongCard).join('');
-  els.list.querySelectorAll('[data-learned-key]').forEach(button => {
-    button.addEventListener('click', () => markLearned(button.dataset.learnedKey));
-  });
+  els.list.innerHTML = '';
+
+  let index = 0;
+  const appendBatch = deadline => {
+    if (currentToken !== renderToken) return;
+
+    const html = [];
+    const batchEnd = Math.min(index + RENDER_BATCH_SIZE, items.length);
+    while (index < batchEnd) {
+      html.push(renderWrongCard(items[index]));
+      index += 1;
+    }
+
+    els.list.insertAdjacentHTML('beforeend', html.join(''));
+    if (index < items.length) {
+      requestRenderCallback(appendBatch);
+    }
+  };
+
+  requestRenderCallback(appendBatch);
 }
 
-function renderWrongCard(entry, index) {
+function requestRenderCallback(callback) {
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(callback, { timeout: 120 });
+    return;
+  }
+  window.setTimeout(() => callback({ timeRemaining: () => 0 }), 0);
+}
+
+function renderWrongCard(entry) {
   const item = entry.item;
   const correctAnswers = Array.isArray(item.answer) ? item.answer : [item.answer];
   const typeLabel = item.type === 'multiple' ? '複選題' : '單選題';
   const streak = Number(entry.wrongMeta.correctStreak || 0);
   const missedAt = entry.wrongMeta.missedAt ? formatDate(entry.wrongMeta.missedAt) : '未記錄';
-  const searchText = [
-    entry.exam.title,
-    entry.exam.tag,
-    item.q,
-    item.explanation,
-    ...(item.options || [])
-  ].join(' ');
 
   return `
-    <article class="wrong-card" data-source="${escapeAttr(entry.exam.href)}" data-search="${escapeAttr(searchText)}" data-entry-key="${escapeAttr(entryKey(entry))}">
+    <article class="wrong-card" data-source="${escapeAttr(entry.exam.href)}" data-entry-key="${escapeAttr(entry.key)}">
       <div class="wrong-card-header">
         <div>
           <div class="source-title">${escapeHtml(entry.exam.title || entry.course.meta.title || entry.exam.href)}</div>
-          <div class="source-meta">${escapeHtml(entry.exam.tag || '')} · 題號 ${escapeHtml(item.id)} · 首次入庫 ${escapeHtml(missedAt)}</div>
+          <div class="source-meta">${escapeHtml(entry.exam.tag || '')} ・ 題號 ${escapeHtml(item.id)} ・ 最近答錯 ${escapeHtml(missedAt)}</div>
         </div>
         <span class="question-type">${typeLabel}</span>
       </div>
@@ -168,44 +276,36 @@ function renderWrongCard(entry, index) {
         ${item.explanation ? `<div class="explanation">${escapeHtml(item.explanation)}</div>` : ''}
       </div>
       <div class="wrong-card-footer">
-        <div class="wrong-state">錯題重練連續答對：${streak} / 2。此總複習頁不會自動出庫。</div>
-        <button class="learned-btn" type="button" data-learned-key="${escapeAttr(entryKey(entry))}">我學會了</button>
+        <div class="wrong-state">連續答對進度：${streak} / 2。達標後可從錯題本移除。</div>
+        <button class="learned-btn" type="button" data-learned-key="${escapeAttr(entry.key)}">標記已學會</button>
       </div>
     </article>
   `;
 }
 
 function markLearned(key) {
-  const index = wrongItems.findIndex(entry => entryKey(entry) === key);
+  const index = wrongItems.findIndex(entry => entry.key === key);
   if (index === -1) return;
 
   const entry = wrongItems[index];
   const wrongBook = readWrongBook(entry.wrongBookKey);
   delete wrongBook[entry.id];
   localStorage.setItem(entry.wrongBookKey, JSON.stringify(wrongBook));
+
   wrongItems.splice(index, 1);
-  renderSourceOptions();
-  renderList();
+  refreshSourceOptionsAfterRemoval();
   applyFilters();
 }
 
-function applyFilters() {
-  const query = els.search.value.trim().toLowerCase();
-  const source = els.sourceFilter.value;
-  let visible = 0;
+function refreshSourceOptionsAfterRemoval() {
+  const currentSource = els.sourceFilter.value;
+  const sourceMap = new Map();
+  wrongItems.forEach(entry => sourceMap.set(entry.exam.href, entry.exam));
+  EXAM_SOURCES.splice(0, EXAM_SOURCES.length, ...sourceMap.values());
+  renderSourceOptions();
 
-  els.list.querySelectorAll('.wrong-card').forEach(card => {
-    const sourceMatch = source === 'all' || card.dataset.source === source;
-    const queryMatch = !query || card.dataset.search.toLowerCase().includes(query);
-    const show = sourceMatch && queryMatch;
-    card.classList.toggle('hidden', !show);
-    if (show) visible++;
-  });
-
-  updateStats(visible);
-  if (wrongItems.length > 0) {
-    els.status.classList.toggle('hidden', visible > 0);
-    if (visible === 0) setStatus('沒有符合篩選條件的錯題。');
+  if (currentSource === 'all' || sourceMap.has(currentSource)) {
+    els.sourceFilter.value = currentSource;
   }
 }
 
@@ -219,10 +319,6 @@ function updateStats(visible) {
 function setStatus(message) {
   els.status.textContent = message;
   els.status.classList.remove('hidden');
-}
-
-function entryKey(entry) {
-  return `${entry.wrongBookKey}::${entry.id}`;
 }
 
 function formatDate(value) {
