@@ -275,6 +275,10 @@ button { border: 0; background: transparent; cursor: pointer; transition: all 15
   background: var(--surface-2);
 }
 
+#syncBtn {
+  display: none;
+}
+
 /* Exam Timer Widget */
 .timer-widget {
   font-family: var(--font-mono);
