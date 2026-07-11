@@ -4,9 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>烘焙題庫考卷列印動態調整</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -43,6 +40,13 @@
 
       <div class="control-group">
         <p class="group-label">內容</p>
+        <label class="select-control layout-mode-control">
+          <span>列印版型</span>
+          <select id="layoutMode">
+            <option value="exam">完整考卷</option>
+            <option value="notes">精簡筆記</option>
+          </select>
+        </label>
         <label class="toggle">
           <input id="showSource" type="checkbox" checked>
           <span>顯示出處</span>
@@ -98,6 +102,11 @@
     </div>
 
     <table id="examTable" class="exam-table" aria-label="烘焙考卷題目表">
+      <colgroup>
+        <col class="answer-column">
+        <col class="question-column">
+        <col class="source-column">
+      </colgroup>
       <tbody id="examBody"></tbody>
     </table>
   </main>
@@ -105,6 +114,5 @@
   <script src="data.js"></script>
   <script src="app.js"></script>
   <script src="../scripts/scroll-top.js"></script>
-
 </body>
 </html>

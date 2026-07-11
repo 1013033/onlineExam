@@ -14,6 +14,7 @@ const els = {
   showSource: document.getElementById("showSource"),
   printBorders: document.getElementById("printBorders"),
   showAnswers: document.getElementById("showAnswers"),
+  layoutMode: document.getElementById("layoutMode"),
   sourceMode: document.getElementById("sourceMode"),
   optionLayout: document.getElementById("optionLayout"),
   optionPosition: document.getElementById("optionPosition"),
@@ -23,6 +24,10 @@ const els = {
 };
 
 const labels = {
+  layoutMode: {
+    exam: "完整考卷",
+    notes: "精簡筆記"
+  },
   sourceMode: {
     "three-column": "三欄右側",
     "two-column-block": "兩欄題內下方",
@@ -51,18 +56,59 @@ function sourceText(question) {
   return question.sourceShort || `【${question.source}】`;
 }
 
-function rowHtml(question) {
+function questionParts(question) {
+  const marker = " 解析提示：";
+  const markerIndex = question.question.indexOf(marker);
+  if (markerIndex < 0) {
+    return { stem: question.question, note: "" };
+  }
+  return {
+    stem: question.question.slice(0, markerIndex).trim(),
+    note: question.question.slice(markerIndex + marker.length).trim()
+  };
+}
+
+function answerText(question, note) {
+  const coreMatch = note.match(/答案核心：(.+?)(?:；整併依據：|$)/);
+  if (coreMatch) return coreMatch[1].trim();
+
+  const letters = [...question.answer.matchAll(/[A-E]/g)].map((match) => match[0]);
+  const selected = question.options
+    .filter((option) => letters.some((letter) => option.startsWith(`(${letter})`)))
+    .map((option) => option.replace(/^\([A-E]\)\s*/, ""));
+  return selected.join("；") || question.answer;
+}
+
+function sectionParts(sectionTitle) {
+  const parts = String(sectionTitle || "").split(/\s*\/\s*/, 2);
+  return { major: parts[0] || "", subsection: parts[1] || "" };
+}
+
+function sectionHtml(sectionTitle, showMajor) {
+  if (!sectionTitle) return "";
+  const { major, subsection } = sectionParts(sectionTitle);
+  const majorRow = showMajor
+    ? `<tr class="major-section-row"><th colspan="3">${escapeHtml(major)}</th></tr>`
+    : "";
+  const noSubsection = subsection ? "" : " no-subsection";
+  return `${majorRow}<tr class="section-row${noSubsection}"><th colspan="3"><span class="exam-section-title">${escapeHtml(sectionTitle)}</span><span class="notes-section-title">${escapeHtml(subsection || major)}</span></th></tr>`;
+}
+
+function rowHtml(question, showMajor) {
   const options = question.options
     .map((option) => `<span class="option">${escapeHtml(option)}</span>`)
     .join("");
   const source = escapeHtml(sourceText(question));
+  const { stem, note } = questionParts(question);
+  const compactAnswer = escapeHtml(answerText(question, note));
+  const sectionRow = sectionHtml(question.sectionTitle, showMajor);
 
-  return `
+  return `${sectionRow}
     <tr>
       <td class="answer-cell">${escapeHtml(question.answer)}</td>
       <td class="body-cell">
         <div class="body-inner">
-          <p class="question-line">${escapeHtml(question.no)}. ${escapeHtml(question.question)}<span class="inline-source">${source}</span></p>
+          <p class="question-line"><span class="question-stem">${escapeHtml(question.no)}. ${escapeHtml(stem)}</span><span class="teaching-note">${note ? ` 解析提示：${escapeHtml(note)}` : ""}</span><span class="note-answer"> → ${compactAnswer}</span><span class="inline-source">${source}</span><span class="note-source">${source}</span></p>
           <div class="options">${options}</div>
           <div class="body-source">${source}</div>
         </div>
@@ -72,7 +118,13 @@ function rowHtml(question) {
 }
 
 function render() {
-  els.body.innerHTML = questions.map(rowHtml).join("");
+  let previousMajor = "";
+  els.body.innerHTML = questions.map((question) => {
+    const { major } = sectionParts(question.sectionTitle);
+    const showMajor = Boolean(major && major !== previousMajor);
+    if (major) previousMajor = major;
+    return rowHtml(question, showMajor);
+  }).join("");
   els.questionCount.textContent = `${questions.length} 題`;
 }
 
@@ -86,6 +138,7 @@ function applySettings() {
   const sourceVisible = els.showSource.checked;
   const bordersVisible = els.printBorders.checked;
   const answersVisible = els.showAnswers.checked;
+  const layoutMode = els.layoutMode.value;
   const printTitle = els.printTitleInput.value.trim();
 
   document.documentElement.style.setProperty("--exam-font-size", `${fontSize}pt`);
@@ -96,9 +149,12 @@ function applySettings() {
   els.questionGapValue.textContent = `${questionGap}px`;
   els.printTitle.textContent = printTitle;
   document.title = printTitle ? `${printTitle} - 列印` : "考卷列印";
+  document.body.classList.toggle("exam-layout", layoutMode === "exam");
+  document.body.classList.toggle("notes-layout", layoutMode === "notes");
 
   els.table.className = [
     "exam-table",
+    layoutMode === "notes" ? "layout-notes" : "layout-exam",
     sourceMode === "three-column" ? "source-three-column" : "source-two-column",
     sourceMode === "two-column-inline" ? "source-inline" : "source-block",
     sourceVisible ? "source-visible" : "source-hidden",
@@ -117,6 +173,7 @@ function applySettings() {
   });
 
   els.modeLabel.textContent = [
+    labels.layoutMode[layoutMode],
     labels.sourceMode[sourceMode],
     labels.optionLayout[optionLayout],
     labels.optionPosition[optionPosition],
@@ -141,6 +198,21 @@ function bindControls() {
   ].forEach((control) => {
     control.addEventListener("input", applySettings);
     control.addEventListener("change", applySettings);
+  });
+
+  els.layoutMode.addEventListener("change", () => {
+    if (els.layoutMode.value === "notes") {
+      els.fontSize.value = "9";
+      els.lineHeight.value = "1.35";
+      els.questionGap.value = "0";
+      els.optionPosition.value = "same-line";
+    } else {
+      els.fontSize.value = "13";
+      els.lineHeight.value = "1.55";
+      els.questionGap.value = "24";
+      els.optionPosition.value = "next-line";
+    }
+    applySettings();
   });
 
   els.printBtn.addEventListener("click", () => {
