@@ -87,7 +87,8 @@
         textAnswers: state.textAnswers || {},
         graded: !!state.graded,
         gradedQuestions: state.gradedQuestions || {},
-        lastSection: state.lastSection || ''
+        lastSection: state.lastSection || '',
+        lastQuestion: state.lastQuestion || ''
       },
       timeRemaining: parseInt(timeVal, 10),
       wrongBook: wrongBook || {}
@@ -108,7 +109,8 @@
             textAnswers: (payload.state && payload.state.textAnswers) || {},
             graded: !!(payload.state && payload.state.graded),
             gradedQuestions: (payload.state && payload.state.gradedQuestions) || {},
-            lastSection: (payload.state && payload.state.lastSection) || ''
+            lastSection: (payload.state && payload.state.lastSection) || '',
+            lastQuestion: (payload.state && payload.state.lastQuestion) || ''
           },
           timeRemaining: Number.isFinite(parsedTime) ? parsedTime : null,
           wrongBook: payload.wrongBook || {}
@@ -134,7 +136,8 @@
         textAnswers: {},
         graded: gradedStr === '1',
         gradedQuestions: {},
-        lastSection: ''
+        lastSection: '',
+        lastQuestion: ''
       };
 
       // Auto check tasks based on answers
@@ -190,11 +193,12 @@
           textAnswers: loaded.textAnswers || {},
           graded: loaded.graded || false,
           gradedQuestions: loaded.gradedQuestions || {},
-          lastSection: loaded.lastSection || ''
+          lastSection: loaded.lastSection || '',
+          lastQuestion: loaded.lastQuestion || ''
         };
       }
       catch {
-        return { tasks: {}, quiz: {}, textAnswers: {}, graded: false, gradedQuestions: {}, lastSection: '' };
+        return { tasks: {}, quiz: {}, textAnswers: {}, graded: false, gradedQuestions: {}, lastSection: '', lastQuestion: '' };
       }
     },
     save(s) { localStorage.setItem(STORE_KEY, JSON.stringify(s)); },
@@ -832,12 +836,20 @@
   /* ============================================================
    * Quiz Logic Handlers
    * ============================================================ */
+  function rememberLastQuestion(itemId) {
+    if (wrongPracticeMode || !itemId) return;
+    state.lastSection = 'quiz';
+    state.lastQuestion = itemId;
+  }
+
+
   function selectSingleOption(itemId, optIdx) {
     const quizState = wrongPracticeMode ? wrongPracticeState.quiz : state.quiz;
     const gradedState = wrongPracticeMode ? wrongPracticeState.gradedQuestions : state.gradedQuestions;
     if ((!wrongPracticeMode && state.graded) || gradedState[itemId]) return; // locked once graded
     quizState[itemId] = optIdx;
     gradedState[itemId] = true;
+    rememberLastQuestion(itemId);
     if (!wrongPracticeMode) store.save(state);
 
     gradeSingleQuestion(itemId, optIdx, wrongPracticeMode);
@@ -877,6 +889,7 @@
     }
 
     gradedState[itemId] = true;
+    rememberLastQuestion(itemId);
     if (!wrongPracticeMode) store.save(state);
 
     gradeMultipleQuestion(itemId, wrongPracticeMode);
@@ -967,6 +980,7 @@
 
     if (!state.textAnswers[itemId]) state.textAnswers[itemId] = {};
     state.textAnswers[itemId][subIdx] = text;
+    rememberLastQuestion(itemId);
     store.save(state);
     updateProgressUI();
   }
@@ -1447,6 +1461,18 @@
     if (modal) modal.classList.remove('active');
   }
 
+  function restoreLastQuestionPosition() {
+    const targetId = state.lastQuestion ? `card-${state.lastQuestion}` : state.lastSection;
+    if (!targetId) return;
+
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(targetId);
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'auto', block: 'start' });
+      if (state.lastQuestion) showToast('已回到上次作答的位置');
+    });
+  }
+
   /* ============================================================
    * Toast helper
    * ============================================================ */
@@ -1563,6 +1589,7 @@
     initSync();
     updateProgressUI();
     setupScrollSpy();
+    restoreLastQuestionPosition();
   }
   document.addEventListener('DOMContentLoaded', init);
   </script>
